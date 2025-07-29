@@ -45,6 +45,6 @@ No, Strimzi Backup currently supports only KRaft-based Apache Kafka clusters.
 
 ### Any plans to support other Strimzi resources?
 
-Currently, the support is planned only for Apache Kafka and Apache Kafka Connect cluster which consist of multiple custom resource and (in case of Apache Kafka clusters) use persistent volumes to store data.
+Currently, the support is planned only for Apache Kafka and Apache Kafka Connect clusters, which consist of multiple custom resources, and (in case of Apache Kafka clusters) use persistent volumes to store data.
 The other resources such as Mirror Maker 2 or Bridge are stateless and consist of a single custom resource.
 So you can easily back them up with `kubectl get ... -o yaml` and do not need any special tools.

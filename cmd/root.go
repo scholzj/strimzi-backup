@@ -41,10 +41,12 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.strimzi-backup.yaml)")
+	rootCmd.PersistentFlags().String("kubeconfig", "", "Path to the kubeconfig file to use for Kubernetes API requests. If not specified, strimzi-shutdown will try to auto-detect the Kubernetes configuration.")
+	rootCmd.PersistentFlags().String("namespace", "", "Namespace of the cluster to backup or restore. If not specified, defaults to the namespace from your Kubernetes configuration.")
+	rootCmd.PersistentFlags().String("name", "", "Name of the cluster to backup or restore")
+	rootCmd.PersistentFlags().Uint32P("timeout", "t", 300000, "Timeout for how long to wait when stopping or continuing the Kafka cluster. In milliseconds.")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

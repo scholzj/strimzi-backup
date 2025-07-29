@@ -16,9 +16,14 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
+	"compress/gzip"
 	"fmt"
-
 	"github.com/spf13/cobra"
+	"io"
+	"log"
+	"log/slog"
+	"os"
 )
 
 // restoreKafkaCmd represents the kafka command
@@ -27,6 +32,38 @@ var restoreKafkaCmd = &cobra.Command{
 	Short: "Restore Strimzi-based Apache Kafka cluster",
 	Long:  "Restore Strimzi-based Apache Kafka cluster",
 	Run: func(cmd *cobra.Command, args []string) {
+		f, err := os.OpenFile("backup.gz", os.O_CREATE|os.O_RDONLY, 0644)
+		if err != nil {
+			slog.Error("Failed to open file", "err", err, "file", "backup.gz")
+		}
+		defer f.Close()
+
+		b := bufio.NewReader(f)
+
+		gzr, _ := gzip.NewReader(b)
+		defer gzr.Close()
+
+		for {
+			gzr.Multistream(false)
+			fmt.Printf("Name: %s\nComment: %s\nModTime: %s\n\n", gzr.Name, gzr.Comment, gzr.ModTime.UTC())
+
+			if _, err := io.Copy(os.Stdout, gzr); err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Print("\n\n")
+
+			err = gzr.Reset(b)
+			if err == io.EOF {
+				fmt.Print("EOF\n\n")
+				break
+			}
+			if err != nil {
+				fmt.Print("Fatal\n\n")
+				log.Fatal(err)
+			}
+		}
+
 		fmt.Println("restore kafka called")
 	},
 }
