@@ -68,7 +68,11 @@ var backupKafkaCmd = &cobra.Command{
 			panic(1)
 		}
 
-		// TODO: Backup user passwords
+		err = b.BackupUserSecrets()
+		if err != nil {
+			slog.Error("Failed to backup User Secrets", "error", err)
+			panic(1)
+		}
 
 		slog.Info("Backup of Kafka cluster is complete", "name", b.Name, "namespace", b.Namespace)
 	},
