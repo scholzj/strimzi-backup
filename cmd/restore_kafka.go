@@ -32,7 +32,7 @@ var restoreKafkaCmd = &cobra.Command{
 	Short: "Restore Strimzi-based Apache Kafka cluster",
 	Long:  "Restore Strimzi-based Apache Kafka cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		f, err := os.OpenFile("backup.gz", os.O_CREATE|os.O_RDONLY, 0644)
+		f, err := os.OpenFile("backup-2025-08-06-22-46-34.gz", os.O_CREATE|os.O_RDONLY, 0644)
 		if err != nil {
 			slog.Error("Failed to open file", "err", err, "file", "backup.gz")
 		}

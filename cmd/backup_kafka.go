@@ -50,7 +50,11 @@ var backupKafkaCmd = &cobra.Command{
 			panic(1)
 		}
 
-		// TODO: Backup CA Secrets
+		err = b.BackupCaSecrets()
+		if err != nil {
+			slog.Error("Failed to backup CA Secrets", "error", err)
+			panic(1)
+		}
 
 		err = b.BackupKafkaTopics()
 		if err != nil {

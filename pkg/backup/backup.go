@@ -58,7 +58,7 @@ func NewBackup(cmd *cobra.Command) (*Backup, error) {
 		return nil, err
 	}
 
-	backupFileName := "backup-" + time.DateOnly + "-" + time.TimeOnly + ".gz"
+	backupFileName := "backup-" + time.Now().Format("2006-01-02-15-04-05") + ".gz"
 	backupFile, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		slog.Error("Failed to open backup file", "err", err, "file", backupFileName)
@@ -88,6 +88,8 @@ func (b *Backup) BackupKafka() error {
 	b.gzipWriter.Comment = "Kafka cluster"
 	b.gzipWriter.ModTime = time.Now()
 
+	slog.Info("Backing up the Kafka resource", "name", b.Name)
+
 	resource, err := b.StrimziClient.KafkaV1beta2().Kafkas(b.Namespace).Get(context.TODO(), b.Name, metav1.GetOptions{})
 	if err != nil {
 		slog.Error("Failed to get the Kafka cluster", "name", b.Name, "namespace", b.Namespace, "error", err)
@@ -112,6 +114,8 @@ func (b *Backup) BackupKafka() error {
 		return err
 	}
 
+	slog.Info("Backup of the Kafka resource complete", "name", b.Name)
+
 	return nil
 }
 
@@ -120,6 +124,8 @@ func (b *Backup) BackupKafkaNodePools() error {
 	b.gzipWriter.Name = "pools.yaml"
 	b.gzipWriter.Comment = "List of Kafka Node Pools"
 	b.gzipWriter.ModTime = time.Now()
+
+	slog.Info("Backing up the KafkaNodePool resources", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	resources, err := b.StrimziClient.KafkaV1beta2().KafkaNodePools(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/cluster=" + b.Name})
 	if err != nil {
@@ -145,6 +151,45 @@ func (b *Backup) BackupKafkaNodePools() error {
 		return err
 	}
 
+	slog.Info("Backup of the KafkaNodePool resources complete", "labelSelector", "strimzi.io/cluster="+b.Name)
+
+	return nil
+}
+
+func (b *Backup) BackupCaSecrets() error {
+	b.gzipWriter.Reset(b.bufferedWriter)
+	b.gzipWriter.Name = "cas.yaml"
+	b.gzipWriter.Comment = "List of CA Secrets"
+	b.gzipWriter.ModTime = time.Now()
+
+	slog.Info("Backing up the CA Secret resources", "labelSelector", "strimzi.io/component-type=certificate-authority,strimzi.io/cluster="+b.Name)
+
+	resources, err := b.KubernetesClient.CoreV1().Secrets(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/component-type=certificate-authority,strimzi.io/cluster=" + b.Name})
+	if err != nil {
+		slog.Error("Failed to get CA Secrets belonging to the Kafka cluster", "name", b.Name, "namespace", b.Namespace, "error", err)
+		return err
+	}
+
+	resourcesYaml, err := yaml.Marshal(resources)
+	if err != nil {
+		slog.Error("Failed to marshal the CA Secrets to YAML", "error", err)
+		return err
+	}
+
+	_, err = b.gzipWriter.Write(resourcesYaml)
+	if err != nil {
+		slog.Error("Failed to write the YAML to the backup file", "error", err)
+		return err
+	}
+
+	err = b.gzipWriter.Close()
+	if err != nil {
+		slog.Error("Failed to close the GZIP writer when resetting the stream", "error", err)
+		return err
+	}
+
+	slog.Info("Backup of the CA Secret resources complete", "labelSelector", "strimzi.io/component-type=certificate-authority,strimzi.io/cluster="+b.Name)
+
 	return nil
 }
 
@@ -153,6 +198,8 @@ func (b *Backup) BackupKafkaTopics() error {
 	b.gzipWriter.Name = "topics.yaml"
 	b.gzipWriter.Comment = "List of Kafka Topics"
 	b.gzipWriter.ModTime = time.Now()
+
+	slog.Info("Backing up the KafkaTopic resources", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	resources, err := b.StrimziClient.KafkaV1beta2().KafkaTopics(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/cluster=" + b.Name})
 	if err != nil {
@@ -178,6 +225,8 @@ func (b *Backup) BackupKafkaTopics() error {
 		return err
 	}
 
+	slog.Info("Backup of the KafkaTopic resources complete", "labelSelector", "strimzi.io/cluster="+b.Name)
+
 	return nil
 }
 
@@ -186,6 +235,8 @@ func (b *Backup) BackupKafkaUsers() error {
 	b.gzipWriter.Name = "users.yaml"
 	b.gzipWriter.Comment = "List of Kafka Users"
 	b.gzipWriter.ModTime = time.Now()
+
+	slog.Info("Backing up the KafkaUser resources", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	resources, err := b.StrimziClient.KafkaV1beta2().KafkaUsers(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/cluster=" + b.Name})
 	if err != nil {
@@ -210,6 +261,8 @@ func (b *Backup) BackupKafkaUsers() error {
 		slog.Error("Failed to close the GZIP writer when resetting the stream", "error", err)
 		return err
 	}
+
+	slog.Info("Backup of the KafkaUser resources complete", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	return nil
 }
