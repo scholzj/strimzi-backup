@@ -35,14 +35,15 @@ import (
 )
 
 type Backup struct {
-	KubernetesClient *kubernetes.Clientset
-	StrimziClient    *strimzi.Clientset
-	Namespace        string
-	Name             string
-	backupFileName   string
-	backupFile       *os.File
-	bufferedWriter   *bufio.Writer
-	gzipWriter       *gzip.Writer
+	KubernetesClient  *kubernetes.Clientset
+	StrimziClient     *strimzi.Clientset
+	Namespace         string
+	Name              string
+	metadataCleansing bool
+	backupFileName    string
+	backupFile        *os.File
+	bufferedWriter    *bufio.Writer
+	gzipWriter        *gzip.Writer
 }
 
 func NewBackup(cmd *cobra.Command) (*Backup, error) {
@@ -52,15 +53,22 @@ func NewBackup(cmd *cobra.Command) (*Backup, error) {
 		return nil, fmt.Errorf("--name option is required")
 	}
 
-	// TODO: Make backup file configurable
-
 	kubeClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
 	if err != nil {
 		slog.Error("Failed to create Kubernetes clients", "err", err)
 		return nil, err
 	}
 
-	backupFileName := "backup-" + time.Now().Format("2006-01-02-15-04-05") + ".gz"
+	metadataCleansing, err := cmd.Flags().GetBool("enable-metadata-cleansing")
+	if err != nil {
+		slog.Error("Failed to get the --enable-metadata-cleansing flag", "err", err)
+		return nil, err
+	}
+
+	backupFileName := cmd.Flag("filename").Value.String()
+	if backupFileName == "" {
+		backupFileName = "backup-" + time.Now().Format("2006-01-02-15-04-05") + ".gz"
+	}
 	backupFile, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		slog.Error("Failed to open backup file", "err", err, "file", backupFileName)
@@ -71,14 +79,15 @@ func NewBackup(cmd *cobra.Command) (*Backup, error) {
 	gzipWriter := gzip.NewWriter(bufferedWriter)
 
 	backup := Backup{
-		KubernetesClient: kubeClient,
-		StrimziClient:    strimziClient,
-		Namespace:        namespace,
-		Name:             name,
-		backupFileName:   backupFileName,
-		backupFile:       backupFile,
-		bufferedWriter:   bufferedWriter,
-		gzipWriter:       gzipWriter,
+		KubernetesClient:  kubeClient,
+		StrimziClient:     strimziClient,
+		Namespace:         namespace,
+		Name:              name,
+		metadataCleansing: metadataCleansing,
+		backupFileName:    backupFileName,
+		backupFile:        backupFile,
+		bufferedWriter:    bufferedWriter,
+		gzipWriter:        gzipWriter,
 	}
 
 	return &backup, nil
@@ -98,8 +107,10 @@ func (b *Backup) BackupKafka() error {
 		return err
 	}
 
-	// Cleanse the metadata
-	b.cleanseMetadata(&resource.ObjectMeta)
+	if b.metadataCleansing {
+		// Cleanse the metadata
+		b.cleanseMetadata(&resource.ObjectMeta)
+	}
 
 	resourceYaml, err := yaml.Marshal(resource)
 	if err != nil {
@@ -138,8 +149,10 @@ func (b *Backup) BackupKafkaNodePools() error {
 		return err
 	}
 
-	// Cleanse the metadata
-	b.cleanseKafkaNodePoolMetadata(resources)
+	if b.metadataCleansing {
+		// Cleanse the metadata
+		b.cleanseKafkaNodePoolMetadata(resources)
+	}
 
 	resourcesYaml, err := yaml.Marshal(resources)
 	if err != nil {
@@ -178,8 +191,10 @@ func (b *Backup) BackupCaSecrets() error {
 		return err
 	}
 
-	// Cleanse the Secret metadata
-	b.cleanseSecretMetadata(resources)
+	if b.metadataCleansing {
+		// Cleanse the Secret metadata
+		b.cleanseSecretMetadata(resources)
+	}
 
 	resourcesYaml, err := yaml.Marshal(resources)
 	if err != nil {
@@ -218,8 +233,10 @@ func (b *Backup) BackupKafkaTopics() error {
 		return err
 	}
 
-	// Cleanse the metadata
-	b.cleanseKafkaTopicMetadata(resources)
+	if b.metadataCleansing {
+		// Cleanse the metadata
+		b.cleanseKafkaTopicMetadata(resources)
+	}
 
 	resourcesYaml, err := yaml.Marshal(resources)
 	if err != nil {
@@ -258,8 +275,10 @@ func (b *Backup) BackupKafkaUsers() error {
 		return err
 	}
 
-	// Cleanse the metadata
-	b.cleanseKafkaUserMetadata(resources)
+	if b.metadataCleansing {
+		// Cleanse the metadata
+		b.cleanseKafkaUserMetadata(resources)
+	}
 
 	resourcesYaml, err := yaml.Marshal(resources)
 	if err != nil {
@@ -298,8 +317,10 @@ func (b *Backup) BackupUserSecrets() error {
 		return err
 	}
 
-	// Cleanse the Secret metadata
-	b.cleanseSecretMetadata(resources)
+	if b.metadataCleansing {
+		// Cleanse the Secret metadata
+		b.cleanseSecretMetadata(resources)
+	}
 
 	resourcesYaml, err := yaml.Marshal(resources)
 	if err != nil {
@@ -393,5 +414,4 @@ func (b *Backup) Close() {
 			slog.Error("Failed to close the backup file", "error", err, "backupFile", b.backupFile.Name())
 		}
 	}
-
 }
