@@ -48,8 +48,6 @@ func init() {
 	rootCmd.PersistentFlags().Uint32("timeout", 300000, "Timeout for how long to wait when stopping or continuing the Kafka cluster. In milliseconds.")
 	rootCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
 
-	_ = rootCmd.MarkPersistentFlagRequired("name")
-
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
