@@ -17,7 +17,7 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/scholzj/strimzi-backup/pkg/backup"
+	"github.com/scholzj/strimzi-backup/pkg/backuper"
 	"github.com/spf13/cobra"
 	"log/slog"
 	"os"
@@ -29,7 +29,7 @@ var backupKafkaCmd = &cobra.Command{
 	Short: "Backup Strimzi-based Apache Kafka cluster",
 	Long:  "Backup Strimzi-based Apache Kafka cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := backup.NewBackup(cmd)
+		b, err := backuper.NewBackuper(cmd)
 		if err != nil {
 			slog.Error("Failed to create backup", "error", err)
 			os.Exit(1)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package backup
+package backuper
 
 import (
 	"bufio"
@@ -34,7 +34,7 @@ import (
 	"time"
 )
 
-type Backup struct {
+type Backuper struct {
 	KubernetesClient  *kubernetes.Clientset
 	StrimziClient     *strimzi.Clientset
 	Namespace         string
@@ -46,7 +46,7 @@ type Backup struct {
 	gzipWriter        *gzip.Writer
 }
 
-func NewBackup(cmd *cobra.Command) (*Backup, error) {
+func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 	name := cmd.Flag("name").Value.String()
 	if name == "" {
 		slog.Error("--name option is required")
@@ -78,7 +78,7 @@ func NewBackup(cmd *cobra.Command) (*Backup, error) {
 	bufferedWriter := bufio.NewWriter(backupFile)
 	gzipWriter := gzip.NewWriter(bufferedWriter)
 
-	backup := Backup{
+	backup := Backuper{
 		KubernetesClient:  kubeClient,
 		StrimziClient:     strimziClient,
 		Namespace:         namespace,
@@ -93,7 +93,7 @@ func NewBackup(cmd *cobra.Command) (*Backup, error) {
 	return &backup, nil
 }
 
-func (b *Backup) BackupKafka() error {
+func (b *Backuper) BackupKafka() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "kafka.yaml"
 	b.gzipWriter.Comment = "Kafka cluster"
@@ -135,7 +135,7 @@ func (b *Backup) BackupKafka() error {
 	return nil
 }
 
-func (b *Backup) BackupKafkaNodePools() error {
+func (b *Backuper) BackupKafkaNodePools() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "pools.yaml"
 	b.gzipWriter.Comment = "List of Kafka Node Pools"
@@ -177,7 +177,7 @@ func (b *Backup) BackupKafkaNodePools() error {
 	return nil
 }
 
-func (b *Backup) BackupCaSecrets() error {
+func (b *Backuper) BackupCaSecrets() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "ca-secrets.yaml"
 	b.gzipWriter.Comment = "List of CA Secrets"
@@ -219,7 +219,7 @@ func (b *Backup) BackupCaSecrets() error {
 	return nil
 }
 
-func (b *Backup) BackupKafkaTopics() error {
+func (b *Backuper) BackupKafkaTopics() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "topics.yaml"
 	b.gzipWriter.Comment = "List of Kafka Topics"
@@ -261,7 +261,7 @@ func (b *Backup) BackupKafkaTopics() error {
 	return nil
 }
 
-func (b *Backup) BackupKafkaUsers() error {
+func (b *Backuper) BackupKafkaUsers() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "users.yaml"
 	b.gzipWriter.Comment = "List of Kafka Users"
@@ -303,7 +303,7 @@ func (b *Backup) BackupKafkaUsers() error {
 	return nil
 }
 
-func (b *Backup) BackupUserSecrets() error {
+func (b *Backuper) BackupUserSecrets() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
 	b.gzipWriter.Name = "user-secrets.yaml"
 	b.gzipWriter.Comment = "List of User Secrets"
@@ -345,35 +345,35 @@ func (b *Backup) BackupUserSecrets() error {
 	return nil
 }
 
-func (b *Backup) cleanseSecretMetadata(resources *v1.SecretList) {
+func (b *Backuper) cleanseSecretMetadata(resources *v1.SecretList) {
 	// We want to avoid copying the resource, so we use the index
 	for i := range resources.Items {
 		b.cleanseMetadata(&resources.Items[i].ObjectMeta)
 	}
 }
 
-func (b *Backup) cleanseKafkaNodePoolMetadata(resources *v1beta2.KafkaNodePoolList) {
+func (b *Backuper) cleanseKafkaNodePoolMetadata(resources *v1beta2.KafkaNodePoolList) {
 	// We want to avoid copying the resource, so we use the index
 	for i := range resources.Items {
 		b.cleanseMetadata(&resources.Items[i].ObjectMeta)
 	}
 }
 
-func (b *Backup) cleanseKafkaTopicMetadata(resources *v1beta2.KafkaTopicList) {
+func (b *Backuper) cleanseKafkaTopicMetadata(resources *v1beta2.KafkaTopicList) {
 	// We want to avoid copying the resource, so we use the index
 	for i := range resources.Items {
 		b.cleanseMetadata(&resources.Items[i].ObjectMeta)
 	}
 }
 
-func (b *Backup) cleanseKafkaUserMetadata(resources *v1beta2.KafkaUserList) {
+func (b *Backuper) cleanseKafkaUserMetadata(resources *v1beta2.KafkaUserList) {
 	// We want to avoid copying the resource, so we use the index
 	for i := range resources.Items {
 		b.cleanseMetadata(&resources.Items[i].ObjectMeta)
 	}
 }
 
-func (b *Backup) cleanseMetadata(metadata *metav1.ObjectMeta) {
+func (b *Backuper) cleanseMetadata(metadata *metav1.ObjectMeta) {
 	//metadata.ResourceVersion = ""
 	//metadata.CreationTimestamp = metav1.NewTime(time.Time{})
 	metadata.ManagedFields = nil
@@ -388,7 +388,7 @@ func (b *Backup) cleanseMetadata(metadata *metav1.ObjectMeta) {
 	}
 }
 
-func (b *Backup) Close() {
+func (b *Backuper) Close() {
 	if b.gzipWriter != nil {
 		err := b.gzipWriter.Flush()
 		if err != nil {

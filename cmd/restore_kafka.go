@@ -37,7 +37,7 @@ var restoreKafkaCmd = &cobra.Command{
 
 		f, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_RDONLY, 0644)
 		if err != nil {
-			slog.Error("Failed to open file", "err", err, "file", "backup.gz")
+			slog.Error("Failed to open file", "err", err, "file", backupFileName)
 		}
 		defer f.Close()
 
