@@ -46,7 +46,6 @@ func init() {
 	rootCmd.PersistentFlags().String("namespace", "", "Namespace of the cluster to backup or restore. If not specified, defaults to the namespace from your Kubernetes configuration.")
 	rootCmd.PersistentFlags().String("name", "", "Name of the cluster to backup or restore")
 	rootCmd.PersistentFlags().Uint32("timeout", 300000, "Timeout for how long to wait when stopping or continuing the Kafka cluster. In milliseconds.")
-
 	rootCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
 
 	_ = rootCmd.MarkPersistentFlagRequired("name")

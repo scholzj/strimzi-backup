@@ -31,6 +31,7 @@ func init() {
 	rootCmd.AddCommand(backupCmd)
 
 	backupCmd.PersistentFlags().Bool("enable-metadata-cleansing", false, "Enables cleaning of metadata when creating the backup")
+	backupCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
 
 	// Here you will define your flags and configuration settings.
 

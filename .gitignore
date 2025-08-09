@@ -1,6 +1,9 @@
 # Binaries
 /strimzi-backup
 
+# Backup files from testing
+/backup*.gz
+
 # Eclipse
 .project
 .classpath

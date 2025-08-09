@@ -30,6 +30,9 @@ var restoreCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(restoreCmd)
 
+	restoreCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
+	_ = restoreCmd.MarkPersistentFlagRequired("filename")
+
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
