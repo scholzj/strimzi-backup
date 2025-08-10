@@ -30,7 +30,11 @@ var restoreCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(restoreCmd)
 
-	restoreCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
+	restoreCmd.PersistentFlags().String("kubeconfig", "", "Path to the kubeconfig file to use for Kubernetes API requests. If not specified, strimzi-backup will try to auto-detect the Kubernetes configuration.")
+	restoreCmd.PersistentFlags().String("namespace", "", "Namespace of the cluster to restore. If not specified, defaults to the namespace from your Kubernetes configuration.")
+	restoreCmd.PersistentFlags().String("name", "", "Name of the cluster to restore")
+	restoreCmd.PersistentFlags().Uint32("timeout", 300000, "Timeout for how long to wait for the cluster to restore. In milliseconds.")
+	restoreCmd.PersistentFlags().String("filename", "", "The name of the file to restore")
 	_ = restoreCmd.MarkPersistentFlagRequired("filename")
 
 	// Here you will define your flags and configuration settings.

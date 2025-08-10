@@ -30,10 +30,12 @@ var backupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupCmd)
 
-	backupCmd.PersistentFlags().Bool("enable-metadata-cleansing", false, "Enables cleaning of metadata when creating the backup")
-	backupCmd.PersistentFlags().String("filename", "", "The name of the file to backup or restore")
-
+	backupCmd.PersistentFlags().String("kubeconfig", "", "Path to the kubeconfig file to use for Kubernetes API requests. If not specified, strimzi-backup will try to auto-detect the Kubernetes configuration.")
+	backupCmd.PersistentFlags().String("namespace", "", "Namespace of the cluster to backup. If not specified, defaults to the namespace from your Kubernetes configuration.")
+	backupCmd.PersistentFlags().String("name", "", "Name of the cluster to backup")
 	_ = backupCmd.MarkPersistentFlagRequired("name")
+	backupCmd.PersistentFlags().String("filename", "", "The name of the resulting backup file")
+	backupCmd.PersistentFlags().Bool("enable-metadata-cleansing", false, "Enables cleaning of metadata when creating the backup")
 
 	// Here you will define your flags and configuration settings.
 
