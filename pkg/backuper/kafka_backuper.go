@@ -64,7 +64,7 @@ func (b *KafkaBackuper) BackupKafka() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the metadata
 		utils.CleanseMetadata(&resource.ObjectMeta)
 	}
@@ -106,7 +106,7 @@ func (b *KafkaBackuper) BackupKafkaNodePools() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the metadata
 		b.cleanseKafkaNodePoolMetadata(resources)
 	}
@@ -148,7 +148,7 @@ func (b *KafkaBackuper) BackupCaSecrets() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the Secret metadata
 		b.cleanseSecretMetadata(resources)
 	}
@@ -190,7 +190,7 @@ func (b *KafkaBackuper) BackupKafkaTopics() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the metadata
 		b.cleanseKafkaTopicMetadata(resources)
 	}
@@ -232,7 +232,7 @@ func (b *KafkaBackuper) BackupKafkaUsers() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the metadata
 		b.cleanseKafkaUserMetadata(resources)
 	}
@@ -274,7 +274,7 @@ func (b *KafkaBackuper) BackupUserSecrets() error {
 		return err
 	}
 
-	if b.metadataCleansing {
+	if !b.skipMetadataCleansing {
 		// Cleanse the Secret metadata
 		b.cleanseSecretMetadata(resources)
 	}

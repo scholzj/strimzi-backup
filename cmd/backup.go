@@ -34,5 +34,5 @@ func init() {
 	backupCmd.PersistentFlags().String("name", "", "Name of the cluster to backup")
 	_ = backupCmd.MarkPersistentFlagRequired("name")
 	backupCmd.PersistentFlags().String("filename", "", "The name of the resulting backup file")
-	backupCmd.PersistentFlags().Bool("enable-metadata-cleansing", false, "Enables cleaning of metadata when creating the backup")
+	backupCmd.PersistentFlags().Bool("skip-metadata-cleansing", false, "Skips cleansing of metadata when creating the backup")
 }
