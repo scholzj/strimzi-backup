@@ -30,14 +30,14 @@ import (
 )
 
 type Backuper struct {
-	KubernetesClient  *kubernetes.Clientset
-	StrimziClient     *strimzi.Clientset
-	Namespace         string
-	Name              string
-	metadataCleansing bool
-	backupFile        *os.File
-	bufferedWriter    *bufio.Writer
-	gzipWriter        *gzip.Writer
+	KubernetesClient      *kubernetes.Clientset
+	StrimziClient         *strimzi.Clientset
+	Namespace             string
+	Name                  string
+	skipMetadataCleansing bool
+	backupFile            *os.File
+	bufferedWriter        *bufio.Writer
+	gzipWriter            *gzip.Writer
 }
 
 func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
@@ -53,9 +53,9 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 		return nil, err
 	}
 
-	metadataCleansing, err := cmd.Flags().GetBool("enable-metadata-cleansing")
+	metadataCleansing, err := cmd.Flags().GetBool("skip-metadata-cleansing")
 	if err != nil {
-		slog.Error("Failed to get the --enable-metadata-cleansing flag", "error", err)
+		slog.Error("Failed to get the --skip-metadata-cleansing flag", "error", err)
 		return nil, err
 	}
 
@@ -73,14 +73,14 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 	gzipWriter := gzip.NewWriter(bufferedWriter)
 
 	backuper := Backuper{
-		KubernetesClient:  kubeClient,
-		StrimziClient:     strimziClient,
-		Namespace:         namespace,
-		Name:              name,
-		metadataCleansing: metadataCleansing,
-		backupFile:        backupFile,
-		bufferedWriter:    bufferedWriter,
-		gzipWriter:        gzipWriter,
+		KubernetesClient:      kubeClient,
+		StrimziClient:         strimziClient,
+		Namespace:             namespace,
+		Name:                  name,
+		skipMetadataCleansing: metadataCleansing,
+		backupFile:            backupFile,
+		bufferedWriter:        bufferedWriter,
+		gzipWriter:            gzipWriter,
 	}
 
 	return &backuper, nil

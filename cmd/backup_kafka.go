@@ -23,54 +23,65 @@ import (
 	"os"
 )
 
-var backupKafkaCmd = &cobra.Command{
-	Use:   "kafka",
-	Short: "Backup Strimzi-based Apache Kafka cluster",
-	Long:  "Backup Strimzi-based Apache Kafka cluster",
-	Run: func(cmd *cobra.Command, args []string) {
-		b, err := backuper.NewKafkaBackuper(cmd)
-		if err != nil {
-			slog.Error("Failed to create backuper", "error", err)
-			os.Exit(1)
-		}
-		defer b.Close()
+var (
+	skipCaSecrets   bool
+	skipUserSecrets bool
+	backupKafkaCmd  = &cobra.Command{
+		Use:   "kafka",
+		Short: "Backup Strimzi-based Apache Kafka cluster",
+		Long:  "Backup Strimzi-based Apache Kafka cluster",
+		Run: func(cmd *cobra.Command, args []string) {
+			b, err := backuper.NewKafkaBackuper(cmd)
+			if err != nil {
+				slog.Error("Failed to create backuper", "error", err)
+				os.Exit(1)
+			}
+			defer b.Close()
 
-		slog.Info("Starting backup of Kafka cluster", "name", b.Name, "namespace", b.Namespace)
+			slog.Info("Starting backup of Kafka cluster", "name", b.Name, "namespace", b.Namespace)
 
-		if err := b.BackupKafka(); err != nil {
-			slog.Error("Failed to backup Kafka", "error", err)
-			panic(1)
-		}
+			if err := b.BackupKafka(); err != nil {
+				slog.Error("Failed to backup Kafka", "error", err)
+				panic(1)
+			}
 
-		if err := b.BackupKafkaNodePools(); err != nil {
-			slog.Error("Failed to backup Kafka node pools", "error", err)
-			panic(1)
-		}
+			if err := b.BackupKafkaNodePools(); err != nil {
+				slog.Error("Failed to backup Kafka node pools", "error", err)
+				panic(1)
+			}
 
-		if err := b.BackupCaSecrets(); err != nil {
-			slog.Error("Failed to backup CA Secrets", "error", err)
-			panic(1)
-		}
+			if !skipCaSecrets {
+				if err := b.BackupCaSecrets(); err != nil {
+					slog.Error("Failed to backup CA Secrets", "error", err)
+					panic(1)
+				}
+			}
 
-		if err := b.BackupKafkaTopics(); err != nil {
-			slog.Error("Failed to backup Kafka topics", "error", err)
-			panic(1)
-		}
+			if err := b.BackupKafkaTopics(); err != nil {
+				slog.Error("Failed to backup Kafka topics", "error", err)
+				panic(1)
+			}
 
-		if err := b.BackupKafkaUsers(); err != nil {
-			slog.Error("Failed to backup Kafka users", "error", err)
-			panic(1)
-		}
+			if err := b.BackupKafkaUsers(); err != nil {
+				slog.Error("Failed to backup Kafka users", "error", err)
+				panic(1)
+			}
 
-		if err := b.BackupUserSecrets(); err != nil {
-			slog.Error("Failed to backup User Secrets", "error", err)
-			panic(1)
-		}
+			if !skipUserSecrets {
+				if err := b.BackupUserSecrets(); err != nil {
+					slog.Error("Failed to backup User Secrets", "error", err)
+					panic(1)
+				}
+			}
 
-		slog.Info("Backup of Kafka cluster is complete", "name", b.Name, "namespace", b.Namespace)
-	},
-}
+			slog.Info("Backup of Kafka cluster is complete", "name", b.Name, "namespace", b.Namespace)
+		},
+	}
+)
 
 func init() {
 	backupCmd.AddCommand(backupKafkaCmd)
+
+	backupCmd.PersistentFlags().BoolVar(&skipCaSecrets, "skip-ca-secrets", false, "Skip backup of the Cluster and Client Certification Authority Secrets")
+	backupCmd.PersistentFlags().BoolVar(&skipUserSecrets, "skip-user-secrets", false, "Skip backup of the Kafka User Secrets")
 }
