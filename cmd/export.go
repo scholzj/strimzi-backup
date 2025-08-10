@@ -23,7 +23,6 @@ import (
 	"os"
 )
 
-// exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Exports all YAMLs from the backup",
@@ -38,8 +37,7 @@ var exportCmd = &cobra.Command{
 
 		slog.Info("Starting export or backup", "filename", e.BackupFileName, "target-directory", e.ExportDirectory)
 
-		err = e.Export()
-		if err != nil {
+		if err := e.Export(); err != nil {
 			slog.Error("Failed to export the backup", "error", err)
 			panic(1)
 		}

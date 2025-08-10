@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// restoreCmd represents the restore command
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore Strimzi-managed Apache Kafka operands",

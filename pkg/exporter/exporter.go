@@ -74,7 +74,7 @@ func (e *Exporter) Export() error {
 		exportFilename := e.ExportDirectory + "/" + e.gzipReader.Name
 		exportFile, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 		if err != nil {
-			slog.Error("Failed to open export file", "err", err, "file", exportFilename)
+			slog.Error("Failed to open export file", "error", err, "file", exportFilename)
 			return err
 		}
 

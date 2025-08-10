@@ -35,7 +35,6 @@ type Backuper struct {
 	Namespace         string
 	Name              string
 	metadataCleansing bool
-	backupFileName    string
 	backupFile        *os.File
 	bufferedWriter    *bufio.Writer
 	gzipWriter        *gzip.Writer
@@ -50,13 +49,13 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 
 	kubeClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
 	if err != nil {
-		slog.Error("Failed to create Kubernetes clients", "err", err)
+		slog.Error("Failed to create Kubernetes clients", "error", err)
 		return nil, err
 	}
 
 	metadataCleansing, err := cmd.Flags().GetBool("enable-metadata-cleansing")
 	if err != nil {
-		slog.Error("Failed to get the --enable-metadata-cleansing flag", "err", err)
+		slog.Error("Failed to get the --enable-metadata-cleansing flag", "error", err)
 		return nil, err
 	}
 
@@ -66,26 +65,25 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 	}
 	backupFile, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		slog.Error("Failed to open backup file", "err", err, "file", backupFileName)
+		slog.Error("Failed to open backup file", "error", err, "file", backupFileName)
 		return nil, err
 	}
 
 	bufferedWriter := bufio.NewWriter(backupFile)
 	gzipWriter := gzip.NewWriter(bufferedWriter)
 
-	backup := Backuper{
+	backuper := Backuper{
 		KubernetesClient:  kubeClient,
 		StrimziClient:     strimziClient,
 		Namespace:         namespace,
 		Name:              name,
 		metadataCleansing: metadataCleansing,
-		backupFileName:    backupFileName,
 		backupFile:        backupFile,
 		bufferedWriter:    bufferedWriter,
 		gzipWriter:        gzipWriter,
 	}
 
-	return &backup, nil
+	return &backuper, nil
 }
 
 func (b *Backuper) Close() {

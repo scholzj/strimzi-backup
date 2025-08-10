@@ -32,6 +32,15 @@ type KafkaBackuper struct {
 	Backuper
 }
 
+const (
+	KafkaFilename            = "kafka.yaml"
+	CaSecretsFilename        = "ca-secrets.yaml"
+	KafkaNodePoolsFilename   = "kafka-node-pools.yaml"
+	KafkaUsersFilename       = "kafka-users.yaml"
+	KafkaTopicsFilename      = "kafka-topics.yaml"
+	KafkaUserSecretsFilename = "kafka-user-secrets.yaml"
+)
+
 func NewKafkaBackuper(cmd *cobra.Command) (*KafkaBackuper, error) {
 	backuper, err := NewBackuper(cmd)
 	if err != nil {
@@ -43,7 +52,7 @@ func NewKafkaBackuper(cmd *cobra.Command) (*KafkaBackuper, error) {
 
 func (b *KafkaBackuper) BackupKafka() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "kafka.yaml"
+	b.gzipWriter.Name = KafkaFilename
 	b.gzipWriter.Comment = "Kafka cluster"
 	b.gzipWriter.ModTime = time.Now()
 
@@ -85,7 +94,7 @@ func (b *KafkaBackuper) BackupKafka() error {
 
 func (b *KafkaBackuper) BackupKafkaNodePools() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "pools.yaml"
+	b.gzipWriter.Name = KafkaNodePoolsFilename
 	b.gzipWriter.Comment = "List of Kafka Node Pools"
 	b.gzipWriter.ModTime = time.Now()
 
@@ -127,7 +136,7 @@ func (b *KafkaBackuper) BackupKafkaNodePools() error {
 
 func (b *KafkaBackuper) BackupCaSecrets() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "ca-secrets.yaml"
+	b.gzipWriter.Name = CaSecretsFilename
 	b.gzipWriter.Comment = "List of CA Secrets"
 	b.gzipWriter.ModTime = time.Now()
 
@@ -169,7 +178,7 @@ func (b *KafkaBackuper) BackupCaSecrets() error {
 
 func (b *KafkaBackuper) BackupKafkaTopics() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "topics.yaml"
+	b.gzipWriter.Name = KafkaTopicsFilename
 	b.gzipWriter.Comment = "List of Kafka Topics"
 	b.gzipWriter.ModTime = time.Now()
 
@@ -211,7 +220,7 @@ func (b *KafkaBackuper) BackupKafkaTopics() error {
 
 func (b *KafkaBackuper) BackupKafkaUsers() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "users.yaml"
+	b.gzipWriter.Name = KafkaUsersFilename
 	b.gzipWriter.Comment = "List of Kafka Users"
 	b.gzipWriter.ModTime = time.Now()
 
@@ -253,7 +262,7 @@ func (b *KafkaBackuper) BackupKafkaUsers() error {
 
 func (b *KafkaBackuper) BackupUserSecrets() error {
 	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = "user-secrets.yaml"
+	b.gzipWriter.Name = KafkaUserSecretsFilename
 	b.gzipWriter.Comment = "List of User Secrets"
 	b.gzipWriter.ModTime = time.Now()
 

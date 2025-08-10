@@ -151,7 +151,7 @@ func determineNamespaceFromOptionOrKubeConfig(namespaceOption string, kubeConfig
 	}
 }
 
-func waitUntilReady(client *strimzi.Clientset, name string, namespace string, timeout uint32) (bool, error) {
+func WaitUntilReady(client *strimzi.Clientset, name string, namespace string, timeout uint32) (*kafkaapi.Kafka, error) {
 	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
 	defer watchContextCancel()
 
@@ -165,16 +165,17 @@ func waitUntilReady(client *strimzi.Clientset, name string, namespace string, ti
 	for {
 		select {
 		case event := <-watcher.ResultChan():
-			if isReady(event.Object.(*kafkaapi.Kafka)) {
-				return true, nil
+			k := event.Object.(*kafkaapi.Kafka)
+			if IsReady(k) {
+				return k, nil
 			}
 		case <-watchContext.Done():
-			return false, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be ready", name, namespace)
+			return nil, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be ready", name, namespace)
 		}
 	}
 }
 
-func isReady(k *kafkaapi.Kafka) bool {
+func IsReady(k *kafkaapi.Kafka) bool {
 	if k.Status != nil && k.Status.Conditions != nil && len(k.Status.Conditions) > 0 {
 		for _, condition := range k.Status.Conditions {
 			if condition.Type == "Ready" && condition.Status == "True" {
@@ -190,7 +191,7 @@ func isReady(k *kafkaapi.Kafka) bool {
 	}
 }
 
-func waitUntilReconciliationPaused(client *strimzi.Clientset, name string, namespace string, timeout uint32) (bool, error) {
+func WaitUntilReconciliationPaused(client *strimzi.Clientset, name string, namespace string, timeout uint32) (*kafkaapi.Kafka, error) {
 	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
 	defer watchContextCancel()
 
@@ -204,16 +205,17 @@ func waitUntilReconciliationPaused(client *strimzi.Clientset, name string, names
 	for {
 		select {
 		case event := <-watcher.ResultChan():
-			if isReconciliationPaused(event.Object.(*kafkaapi.Kafka)) {
-				return true, nil
+			k := event.Object.(*kafkaapi.Kafka)
+			if IsReconciliationPaused(k) {
+				return k, nil
 			}
 		case <-watchContext.Done():
-			return false, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be paused", name, namespace)
+			return nil, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be paused", name, namespace)
 		}
 	}
 }
 
-func isReconciliationPaused(k *kafkaapi.Kafka) bool {
+func IsReconciliationPaused(k *kafkaapi.Kafka) bool {
 	if k.Status != nil && k.Status.Conditions != nil && len(k.Status.Conditions) > 0 {
 		for _, condition := range k.Status.Conditions {
 			if condition.Type == "ReconciliationPaused" && condition.Status == "True" {

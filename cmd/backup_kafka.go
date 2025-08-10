@@ -23,7 +23,6 @@ import (
 	"os"
 )
 
-// backupKafkaCmd represents the kafka command
 var backupKafkaCmd = &cobra.Command{
 	Use:   "kafka",
 	Short: "Backup Strimzi-based Apache Kafka cluster",
@@ -31,45 +30,39 @@ var backupKafkaCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := backuper.NewKafkaBackuper(cmd)
 		if err != nil {
-			slog.Error("Failed to create backup", "error", err)
+			slog.Error("Failed to create backuper", "error", err)
 			os.Exit(1)
 		}
 		defer b.Close()
 
 		slog.Info("Starting backup of Kafka cluster", "name", b.Name, "namespace", b.Namespace)
 
-		err = b.BackupKafka()
-		if err != nil {
+		if err := b.BackupKafka(); err != nil {
 			slog.Error("Failed to backup Kafka", "error", err)
 			panic(1)
 		}
 
-		err = b.BackupKafkaNodePools()
-		if err != nil {
+		if err := b.BackupKafkaNodePools(); err != nil {
 			slog.Error("Failed to backup Kafka node pools", "error", err)
 			panic(1)
 		}
 
-		err = b.BackupCaSecrets()
-		if err != nil {
+		if err := b.BackupCaSecrets(); err != nil {
 			slog.Error("Failed to backup CA Secrets", "error", err)
 			panic(1)
 		}
 
-		err = b.BackupKafkaTopics()
-		if err != nil {
+		if err := b.BackupKafkaTopics(); err != nil {
 			slog.Error("Failed to backup Kafka topics", "error", err)
 			panic(1)
 		}
 
-		err = b.BackupKafkaUsers()
-		if err != nil {
+		if err := b.BackupKafkaUsers(); err != nil {
 			slog.Error("Failed to backup Kafka users", "error", err)
 			panic(1)
 		}
 
-		err = b.BackupUserSecrets()
-		if err != nil {
+		if err := b.BackupUserSecrets(); err != nil {
 			slog.Error("Failed to backup User Secrets", "error", err)
 			panic(1)
 		}

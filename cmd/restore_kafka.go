@@ -17,57 +17,32 @@ limitations under the License.
 package cmd
 
 import (
-	"bufio"
-	"compress/gzip"
-	"fmt"
+	"github.com/scholzj/strimzi-backup/pkg/restorer"
 	"github.com/spf13/cobra"
-	"io"
-	"log"
 	"log/slog"
 	"os"
 )
 
-// restoreKafkaCmd represents the kafka command
 var restoreKafkaCmd = &cobra.Command{
 	Use:   "kafka",
 	Short: "Restore Strimzi-based Apache Kafka cluster",
 	Long:  "Restore Strimzi-based Apache Kafka cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		backupFileName := cmd.Flag("filename").Value.String()
-
-		f, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_RDONLY, 0644)
+		r, err := restorer.NewKafkaRestorer(cmd)
 		if err != nil {
-			slog.Error("Failed to open file", "err", err, "file", backupFileName)
+			slog.Error("Failed to create restorer", "error", err)
+			os.Exit(1)
 		}
-		defer f.Close()
+		defer r.Close()
 
-		b := bufio.NewReader(f)
+		slog.Info("Starting restoration of Kafka cluster", "name", r.Name, "namespace", r.Namespace)
 
-		gzr, _ := gzip.NewReader(b)
-		defer gzr.Close()
-
-		for {
-			gzr.Multistream(false)
-			fmt.Printf("Name: %s\nComment: %s\nModTime: %s\n\n", gzr.Name, gzr.Comment, gzr.ModTime.UTC())
-
-			if _, err := io.Copy(os.Stdout, gzr); err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Print("\n\n")
-
-			err = gzr.Reset(b)
-			if err == io.EOF {
-				fmt.Print("EOF\n\n")
-				break
-			}
-			if err != nil {
-				fmt.Print("Fatal\n\n")
-				log.Fatal(err)
-			}
+		if err := r.RestoreKafka(); err != nil {
+			slog.Error("Failed to restore the Kafka cluster", "name", r.Name, "namespace", r.Namespace, "error", err)
+			panic(1)
 		}
 
-		fmt.Println("restore kafka called")
+		slog.Info("Kafka cluster was restored", "name", r.Name, "namespace", r.Namespace)
 	},
 }
 
