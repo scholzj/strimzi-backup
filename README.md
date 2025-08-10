@@ -17,13 +17,13 @@ Strimzi Backup supports several command line options:
 
 TODO: Fix
 
-| Option             | Description                                                                                                                                                | Default Value |
-|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| `--help` / `-h`    | Help                                                                                                                                                       |               |
-| `--kubeconfig`     | Path to the kubeconfig file to use for Kubernetes API requests. If not specified, `strimzi-shutdown` will try to auto-detect the Kubernetes configuration. |               |
-| `--namespace`      | Namespace of the Kafka cluster. If not specified, defaults to the namespace from your Kubernetes configuration.                                            |               |
-| `--name`           | Name of the Kafka cluster.                                                                                                                                 |               |
-| `--timeout` / `-t` | Timeout for how long to wait for the Proxy Pod to become ready. In milliseconds.                                                                           | `300000`      |
+| Option             | Description                                                                                                                                              | Default Value |
+|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `--help` / `-h`    | Help                                                                                                                                                     |               |
+| `--kubeconfig`     | Path to the kubeconfig file to use for Kubernetes API requests. If not specified, `strimzi-backup` will try to auto-detect the Kubernetes configuration. |               |
+| `--namespace`      | Namespace of the Kafka cluster. If not specified, defaults to the namespace from your Kubernetes configuration.                                          |               |
+| `--name`           | Name of the Kafka cluster.                                                                                                                               |               |
+| `--timeout` / `-t` | Timeout for how long to wait for the Proxy Pod to become ready. In milliseconds.                                                                         | `300000`      |
 
 ### Backing up your Apache Kafka cluster
 

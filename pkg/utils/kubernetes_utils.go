@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -51,13 +50,13 @@ func CreateKubernetesClients(cmd *cobra.Command) (*kubernetes.Clientset, *strimz
 
 	kubeClient, err := createKubernetesClient(kubeConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Kubernetes client: %v", err)
+		slog.Error("Failed to create Kubernetes client", "error", err)
 		return nil, nil, "", err
 	}
 
 	strimziClient, err := createStrimziClient(kubeConfig)
 	if err != nil {
-		log.Fatalf("Failed to create Strimzi client: %v", err)
+		slog.Error("Failed to create Strimzi client", "error", err)
 		return nil, nil, "", err
 	}
 
@@ -133,7 +132,6 @@ func tryToFindKubeConfigPath(kubeConfigOption string) string {
 				slog.Info("Using kubeconfig from home directory", "kubeConfigPath", kubeConfigPath)
 			}
 		} else {
-			log.Printf("Could not find Kubernetes configuration file. In-cluster configuration will be used.")
 			slog.Info("Could not find Kubernetes configuration file. In-cluster configuration will be used.")
 		}
 
@@ -181,16 +179,13 @@ func isReady(k *kafkaapi.Kafka) bool {
 		for _, condition := range k.Status.Conditions {
 			if condition.Type == "Ready" && condition.Status == "True" {
 				if k.Status.ObservedGeneration == k.ObjectMeta.Generation {
-					//log.Print("The Kafka cluster is ready and up-to-date")
 					return true
 				}
 			}
 		}
 
-		//log.Print("The Kafka cluster has conditions but is not ready")
 		return false
 	} else {
-		//log.Print("The Kafka cluster has no conditions")
 		return false
 	}
 }
@@ -222,15 +217,27 @@ func isReconciliationPaused(k *kafkaapi.Kafka) bool {
 	if k.Status != nil && k.Status.Conditions != nil && len(k.Status.Conditions) > 0 {
 		for _, condition := range k.Status.Conditions {
 			if condition.Type == "ReconciliationPaused" && condition.Status == "True" {
-				//log.Print("The Kafka cluster is ready and up-to-date")
 				return true
 			}
 		}
 
-		//log.Print("The Kafka cluster has conditions but is not ready")
 		return false
 	} else {
-		//log.Print("The Kafka cluster has no conditions")
 		return false
+	}
+}
+
+func CleanseMetadata(metadata *metav1.ObjectMeta) {
+	metadata.ResourceVersion = ""
+	metadata.CreationTimestamp = metav1.Time{}
+	metadata.ManagedFields = nil
+	metadata.Generation = 0
+	metadata.DeletionTimestamp = nil
+	metadata.OwnerReferences = nil
+	metadata.DeletionGracePeriodSeconds = nil
+	metadata.UID = ""
+
+	if metadata.Annotations != nil && metadata.Annotations["kubectl.kubernetes.io/last-applied-configuration"] != "" {
+		delete(metadata.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
 	}
 }

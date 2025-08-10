@@ -36,14 +36,4 @@ func init() {
 	restoreCmd.PersistentFlags().Uint32("timeout", 300000, "Timeout for how long to wait for the cluster to restore. In milliseconds.")
 	restoreCmd.PersistentFlags().String("filename", "", "The name of the file to restore")
 	_ = restoreCmd.MarkPersistentFlagRequired("filename")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// restoreCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// restoreCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -36,14 +36,4 @@ func init() {
 	_ = backupCmd.MarkPersistentFlagRequired("name")
 	backupCmd.PersistentFlags().String("filename", "", "The name of the resulting backup file")
 	backupCmd.PersistentFlags().Bool("enable-metadata-cleansing", false, "Enables cleaning of metadata when creating the backup")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// backupCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// backupCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

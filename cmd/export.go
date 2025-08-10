@@ -53,17 +53,6 @@ func init() {
 
 	exportCmd.PersistentFlags().String("filename", "", "The name of the file to be exported to files")
 	_ = exportCmd.MarkPersistentFlagRequired("filename")
-
 	exportCmd.PersistentFlags().String("target-directory", "", "The directory where the files should be exported")
 	_ = exportCmd.MarkPersistentFlagRequired("target-directory")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// exportCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// exportCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
