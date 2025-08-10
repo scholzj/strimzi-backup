@@ -37,7 +37,7 @@ jobs:
         run: go test -v ./...
       - name: Build Golang binaries
         env:
-          PLATFORMS: "darwin/arm64 darwin/amd64 linux/386 linux/amd64 linux/arm64 windows/amd64 windows/arm64 windows/386"
+          PLATFORMS: "darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64"
           VERSION: ${{github.ref_name}}
         run: |
           for PLATFORM in ${PLATFORMS}
@@ -65,7 +65,7 @@ jobs:
         env:
           PLATFORMS: "linux/amd64,linux/arm64"
         run: |
-          docker buildx build --platform $PLATFORMS --output "type=image,push=true" --tag ghcr.io/scholzj/strimzi-backup:${{github.ref_name}} .
+          docker buildx build --platform $PLATFORMS --output "type=image,push=true,annotation-index.org.opencontainers.image.title=Strimzi Backup,annotation-index.org.opencontainers.image.description=Simple utility to backup and restore your Strimzi-based Apache Kafka cluster" --tag ghcr.io/scholzj/strimzi-backup:${{github.ref_name}} .
 
       # Upload the binaries for use from CLI
       - name: Upload binary
