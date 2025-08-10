@@ -37,7 +37,7 @@ func NewExporter(cmd *cobra.Command) (*Exporter, error) {
 	backupFileName := cmd.Flag("filename").Value.String()
 	exportDirectory := cmd.Flag("target-directory").Value.String()
 
-	backupFile, err := os.OpenFile(backupFileName, os.O_CREATE|os.O_RDONLY, 0644)
+	backupFile, err := os.OpenFile(backupFileName, os.O_RDONLY, 0644)
 	if err != nil {
 		slog.Error("Failed to open file", "error", err, "file", backupFileName)
 		return nil, err
