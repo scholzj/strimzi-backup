@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log/slog"
 	"sigs.k8s.io/yaml"
+	"strings"
 )
 
 type KafkaRestorer struct {
@@ -68,7 +69,7 @@ func (r *KafkaRestorer) RestoreKafka() error {
 		case backuper.CaSecretsFilename:
 			slog.Info("Restoring CA Secrets")
 
-			if err := r.restoreSecrets(resources); err != nil {
+			if err := r.restoreCaSecrets(resources); err != nil {
 				slog.Error("Failed to restore CA Secrets", "error", err)
 				return err
 			}
@@ -304,6 +305,40 @@ func (r *KafkaRestorer) restoreKafkaTopics(resources []byte) error {
 
 		if _, err := r.StrimziClient.KafkaV1beta2().KafkaTopics(r.Namespace).Create(context.TODO(), &topic, metav1.CreateOptions{}); err != nil {
 			slog.Error("Failed to restore the Kafka Topic resource", "name", topic.Name, "namespace", topic.Namespace, "error", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *KafkaRestorer) restoreCaSecrets(resources []byte) error {
+	var secrets *v1.SecretList
+
+	if err := yaml.Unmarshal(resources, &secrets); err != nil {
+		slog.Error("Failed to unmarshall the CA Secret resources", "error", err)
+		return err
+	}
+
+	for _, secret := range secrets.Items {
+		slog.Info("Restoring CA Secret", "name", secret.Name, "namespace", secret.Namespace)
+
+		// We have to update the names of the CA secrets so that they are reused when the cluster is renamed
+		if strings.HasSuffix(secret.Name, "-cluster-ca") {
+			secret.Name = r.Name + "-cluster-ca"
+		} else if strings.HasSuffix(secret.Name, "-cluster-ca-cert") {
+			secret.Name = r.Name + "-cluster-ca-cert"
+		} else if strings.HasSuffix(secret.Name, "-clients-ca") {
+			secret.Name = r.Name + "-clients-ca"
+		} else if strings.HasSuffix(secret.Name, "-clients-ca-cert") {
+			secret.Name = r.Name + "-clients-ca-cert"
+		}
+
+		utils.CleanseMetadata(&secret.ObjectMeta)
+		r.updateNamespaceAndClusterName(&secret.ObjectMeta)
+
+		if _, err := r.KubernetesClient.CoreV1().Secrets(r.Namespace).Create(context.TODO(), &secret, metav1.CreateOptions{}); err != nil {
+			slog.Error("Failed to restore the Secret", "name", secret.Name, "namespace", secret.Namespace, "error", err)
 			return err
 		}
 	}
