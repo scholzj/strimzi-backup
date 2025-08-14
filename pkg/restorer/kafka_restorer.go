@@ -74,6 +74,8 @@ func NewKafkaRestorer(cmd *cobra.Command) (*KafkaRestorer, error) {
 }
 
 func (r *KafkaRestorer) RestoreKafka() error {
+	var clusterId string // Is used later to restore the cluster ID
+
 	for {
 		r.gzipReader.Multistream(false)
 
@@ -87,7 +89,8 @@ func (r *KafkaRestorer) RestoreKafka() error {
 		case backuper.KafkaFilename:
 			slog.Info("Restoring paused Kafka resource")
 
-			if err := r.restoreKafka(resources); err != nil {
+			clusterId, err = r.restoreKafka(resources)
+			if err != nil {
 				slog.Error("Failed to restore Kafka resource", "error", err)
 				return err
 			}
@@ -128,7 +131,7 @@ func (r *KafkaRestorer) RestoreKafka() error {
 				return err
 			}
 
-			slog.Info("Kafka USers were restored")
+			slog.Info("Kafka Users were restored")
 			break
 		case backuper.KafkaTopicsFilename:
 			slog.Info("Restoring Kafka Topics")
@@ -171,6 +174,12 @@ func (r *KafkaRestorer) RestoreKafka() error {
 		}
 	}
 
+	// We restore the Cluster ID only now to avoid the race condition from https://github.com/scholzj/strimzi-backup/issues/19
+	if err := r.restoreKafkaClusterId(clusterId); err != nil {
+		slog.Error("Failed to restore Kafka Cluster ID", "error", err)
+		return err
+	}
+
 	if err := r.unpauseKafkaClusterAndWaitForReadiness(); err != nil {
 		slog.Error("Failed to unpause Kafka cluster and get it into the Ready state", "error", err)
 		return err
@@ -179,12 +188,12 @@ func (r *KafkaRestorer) RestoreKafka() error {
 	return nil
 }
 
-func (r *KafkaRestorer) restoreKafka(resource []byte) error {
+func (r *KafkaRestorer) restoreKafka(resource []byte) (string, error) {
 	var kafka *v1beta2.Kafka
 
 	if err := yaml.Unmarshal(resource, &kafka); err != nil {
 		slog.Error("Failed to unmarshall the Kafka resource", "error", err)
-		return err
+		return "", err
 	}
 
 	// We update the metadata and pause the resource
@@ -199,13 +208,28 @@ func (r *KafkaRestorer) restoreKafka(resource []byte) error {
 
 	if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Create(context.TODO(), kafka, metav1.CreateOptions{}); err != nil {
 		slog.Error("Failed to restore the Kafka resource", "error", err)
-		return err
+		return "", err
 	}
 
 	// Wait for the paused reconciliation to be confirmed
-	pausedKafka, err := utils.WaitUntilReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
+	_, err := utils.WaitUntilReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
 	if err != nil {
 		slog.Error("The Kafka resource was not paused. Please check the Cluster Operator logs for more details.", "error", err)
+		return "", err
+	}
+
+	// We recover the Cluster ID for later
+	if kafka.Status != nil && kafka.Status.ClusterId != "" {
+		return kafka.Status.ClusterId, nil
+	} else {
+		return "", nil
+	}
+}
+
+func (r *KafkaRestorer) restoreKafkaClusterId(clusterId string) error {
+	kafka, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
+	if err != nil {
+		slog.Error("Failed to restore the Kafka resource", "error", err)
 		return err
 	}
 
@@ -213,12 +237,12 @@ func (r *KafkaRestorer) restoreKafka(resource []byte) error {
 		slog.Warn("Skipping restoring Kafka Cluster ID")
 	} else {
 		// We restore the Cluster ID
-		if kafka.Status != nil && kafka.Status.ClusterId != "" {
-			slog.Info("Restoring Kafka Cluster ID", "clusterId", kafka.Status.ClusterId)
-			pausedKafkaWithClusterId := pausedKafka.DeepCopy()
-			pausedKafkaWithClusterId.Status.ClusterId = kafka.Status.ClusterId
+		if clusterId != "" {
+			slog.Info("Restoring Kafka Cluster ID", "clusterId", clusterId)
+			kafkaWithClusterId := kafka.DeepCopy()
+			kafkaWithClusterId.Status.ClusterId = clusterId
 
-			if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).UpdateStatus(context.TODO(), pausedKafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
+			if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).UpdateStatus(context.TODO(), kafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
 				slog.Error("Failed to update the status of the Kafka resource and set the Cluster ID", "error", err)
 				return err
 			}
