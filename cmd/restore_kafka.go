@@ -48,4 +48,8 @@ var restoreKafkaCmd = &cobra.Command{
 
 func init() {
 	restoreCmd.AddCommand(restoreKafkaCmd)
+
+	restoreKafkaCmd.PersistentFlags().Bool("skip-ca-secrets", false, "Skip restoring of the Cluster and Client Certification Authority Secrets")
+	restoreKafkaCmd.PersistentFlags().Bool("skip-user-secrets", false, "Skip restoring of the Kafka User Secrets")
+	restoreKafkaCmd.PersistentFlags().Bool("skip-cluster-id", false, "Skip restoring of the Kafka Cluster ID")
 }
