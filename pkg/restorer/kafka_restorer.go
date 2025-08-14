@@ -33,6 +33,10 @@ import (
 
 type KafkaRestorer struct {
 	Restorer
+
+	skipCaSecrets   bool
+	skipUserSecrets bool
+	skipClusterID   bool
 }
 
 func NewKafkaRestorer(cmd *cobra.Command) (*KafkaRestorer, error) {
@@ -41,7 +45,32 @@ func NewKafkaRestorer(cmd *cobra.Command) (*KafkaRestorer, error) {
 		return nil, err
 	}
 
-	return &KafkaRestorer{Restorer: *restorer}, nil
+	skipCaSecrets, err := cmd.Flags().GetBool("skip-ca-secrets")
+	if err != nil {
+		slog.Error("Failed to get the --skip-ca-secrets flag", "error", err)
+		return nil, err
+	}
+
+	skipUserSecrets, err := cmd.Flags().GetBool("skip-user-secrets")
+	if err != nil {
+		slog.Error("Failed to get the --skip-user-secrets flag", "error", err)
+		return nil, err
+	}
+
+	skipClusterId, err := cmd.Flags().GetBool("skip-cluster-id")
+	if err != nil {
+		slog.Error("Failed to get the --skip-cluster-id flag", "error", err)
+		return nil, err
+	}
+
+	kafkaRestorer := &KafkaRestorer{
+		Restorer:        *restorer,
+		skipCaSecrets:   skipCaSecrets,
+		skipUserSecrets: skipUserSecrets,
+		skipClusterID:   skipClusterId,
+	}
+
+	return kafkaRestorer, nil
 }
 
 func (r *KafkaRestorer) RestoreKafka() error {
@@ -67,14 +96,19 @@ func (r *KafkaRestorer) RestoreKafka() error {
 
 			break
 		case backuper.CaSecretsFilename:
-			slog.Info("Restoring CA Secrets")
+			if r.skipCaSecrets {
+				slog.Warn("Skipping restoring CA Secrets")
+			} else {
+				slog.Info("Restoring CA Secrets")
 
-			if err := r.restoreCaSecrets(resources); err != nil {
-				slog.Error("Failed to restore CA Secrets", "error", err)
-				return err
+				if err := r.restoreCaSecrets(resources); err != nil {
+					slog.Error("Failed to restore CA Secrets", "error", err)
+					return err
+				}
+
+				slog.Info("CA Secrets were restored")
 			}
 
-			slog.Info("CA Secrets were restored")
 			break
 		case backuper.KafkaNodePoolsFilename:
 			slog.Info("Restoring Kafka Node Pools")
@@ -107,14 +141,19 @@ func (r *KafkaRestorer) RestoreKafka() error {
 			slog.Info("Kafka Topics were restored")
 			break
 		case backuper.KafkaUserSecretsFilename:
-			slog.Info("Restoring Kafka User Secrets")
+			if r.skipCaSecrets {
+				slog.Warn("Skipping restoring Kafka User Secrets")
+			} else {
+				slog.Info("Restoring Kafka User Secrets")
 
-			if err := r.restoreSecrets(resources); err != nil {
-				slog.Error("Failed to restore Kafka User Secrets", "error", err)
-				return err
+				if err := r.restoreSecrets(resources); err != nil {
+					slog.Error("Failed to restore Kafka User Secrets", "error", err)
+					return err
+				}
+
+				slog.Info("Kafka User Secrets were restored")
 			}
 
-			slog.Info("Kafka User Secrets were restored")
 			break
 		default:
 			slog.Error("Unknown resources found in backup", "name", r.gzipReader.Name, "comment", r.gzipReader.Comment, "modTime", r.gzipReader.ModTime)
@@ -170,18 +209,22 @@ func (r *KafkaRestorer) restoreKafka(resource []byte) error {
 		return err
 	}
 
-	// We restore the Cluster ID
-	if kafka.Status != nil && kafka.Status.ClusterId != "" {
-		slog.Info("Restoring Kafka Cluster ID", "clusterId", kafka.Status.ClusterId)
-		pausedKafkaWithClusterId := pausedKafka.DeepCopy()
-		pausedKafkaWithClusterId.Status.ClusterId = kafka.Status.ClusterId
-
-		if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).UpdateStatus(context.TODO(), pausedKafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
-			slog.Error("Failed to update the status of the Kafka resource and set the Cluster ID", "error", err)
-			return err
-		}
+	if r.skipClusterID {
+		slog.Warn("Skipping restoring Kafka Cluster ID")
 	} else {
-		slog.Warn("Cannot restore Kafka Cluster ID as it is not present in the original Kafka resource")
+		// We restore the Cluster ID
+		if kafka.Status != nil && kafka.Status.ClusterId != "" {
+			slog.Info("Restoring Kafka Cluster ID", "clusterId", kafka.Status.ClusterId)
+			pausedKafkaWithClusterId := pausedKafka.DeepCopy()
+			pausedKafkaWithClusterId.Status.ClusterId = kafka.Status.ClusterId
+
+			if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).UpdateStatus(context.TODO(), pausedKafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
+				slog.Error("Failed to update the status of the Kafka resource and set the Cluster ID", "error", err)
+				return err
+			}
+		} else {
+			slog.Warn("Cannot restore Kafka Cluster ID as it is not present in the original Kafka resource")
+		}
 	}
 
 	return nil
