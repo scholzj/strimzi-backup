@@ -23,6 +23,7 @@ import (
 	"github.com/scholzj/strimzi-backup/pkg/utils"
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"log/slog"
 	"os"
@@ -84,6 +85,15 @@ func NewRestorer(cmd *cobra.Command) (*Restorer, error) {
 	}
 
 	return &restorer, nil
+}
+
+func (r *Restorer) updateNamespaceAndClusterName(metadata *metav1.ObjectMeta) {
+	metadata.Namespace = r.Namespace
+	if metadata.Labels == nil {
+		metadata.Labels = map[string]string{"strimzi.io/cluster": r.Name}
+	} else {
+		metadata.Labels["strimzi.io/cluster"] = r.Name
+	}
 }
 
 func (r *Restorer) Close() {

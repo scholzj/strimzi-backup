@@ -2,7 +2,7 @@
 /strimzi-backup
 
 # Backup files from testing
-/backup*.gz
+/*.gz
 
 # Eclipse
 .project

@@ -212,7 +212,7 @@ func (r *KafkaRestorer) restoreKafka(resource []byte) (string, error) {
 	}
 
 	// Wait for the paused reconciliation to be confirmed
-	_, err := utils.WaitUntilReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
+	_, err := utils.WaitUntilKafkaReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
 	if err != nil {
 		slog.Error("The Kafka resource was not paused. Please check the Cluster Operator logs for more details.", "error", err)
 		return "", err
@@ -261,7 +261,7 @@ func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
 		return err
 	}
 
-	if utils.IsReconciliationPaused(kafka) {
+	if utils.IsKafkaReconciliationPaused(kafka) {
 		slog.Info("Unpausing the Kafka cluster", "name", r.Name, "namespace", r.Namespace)
 		unpausedKafka := kafka.DeepCopy()
 
@@ -278,18 +278,18 @@ func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
 		}
 
 		slog.Info("Waiting for the Kafka cluster to get ready", "name", r.Name, "namespace", r.Namespace)
-		_, err = utils.WaitUntilReady(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
+		_, err = utils.WaitUntilKafkaReady(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
 		if err != nil {
 			slog.Error("The Kafka cluster did not become ready. Please check the Cluster Operator logs for more details.", "name", r.Name, "namespace", r.Namespace, "error", err)
 			return err
 		}
 
 		slog.Info("The Kafka cluster is ready", "name", r.Name, "namespace", r.Namespace)
-	} else if utils.IsReady(kafka) {
+	} else if utils.IsKafkaReady(kafka) {
 		slog.Warn("The Kafka cluster is already ready and does not need to be unpaused", "name", r.Name, "namespace", r.Namespace)
 	} else {
 		slog.Warn("The Kafka cluster is not paused, but it is not ready. Waiting for the Kafka cluster to get ready.", "name", r.Name, "namespace", r.Namespace)
-		_, err = utils.WaitUntilReady(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
+		_, err = utils.WaitUntilKafkaReady(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
 		if err != nil {
 			slog.Error("The Kafka cluster did not become ready. Please check the Cluster Operator logs for more details.", "name", r.Name, "namespace", r.Namespace, "error", err)
 			return err
@@ -299,15 +299,6 @@ func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
 	}
 
 	return nil
-}
-
-func (r *KafkaRestorer) updateNamespaceAndClusterName(metadata *metav1.ObjectMeta) {
-	metadata.Namespace = r.Namespace
-	if metadata.Labels == nil {
-		metadata.Labels = map[string]string{"strimzi.io/cluster": r.Name}
-	} else {
-		metadata.Labels["strimzi.io/cluster"] = r.Name
-	}
 }
 
 func (r *KafkaRestorer) restoreKafkaNodePools(resources []byte) error {
@@ -436,6 +427,6 @@ func (r *KafkaRestorer) restoreSecrets(resources []byte) error {
 	return nil
 }
 
-//func (r *KafkaRestorer) Close() {
+//func (r *ConnectRestorer) Close() {
 //	r.Restorer.Close()
 //}

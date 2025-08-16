@@ -330,6 +330,6 @@ func (b *KafkaBackuper) cleanseKafkaUserMetadata(resources *v1beta2.KafkaUserLis
 	}
 }
 
-//func (b *KafkaBackuper) Close() {
+//func (b *ConnectBackuper) Close() {
 //	b.Backuper.Close()
 //}

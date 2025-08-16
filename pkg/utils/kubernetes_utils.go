@@ -17,13 +17,10 @@ limitations under the License.
 package utils
 
 import (
-	"context"
 	"fmt"
-	kafkaapi "github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1beta2"
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -31,7 +28,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 func CreateKubernetesClients(cmd *cobra.Command) (*kubernetes.Clientset, *strimzi.Clientset, string, error) {
@@ -148,84 +144,6 @@ func determineNamespaceFromOptionOrKubeConfig(namespaceOption string, kubeConfig
 		return kubeConfigNamespace, nil
 	} else {
 		return "", fmt.Errorf("namespace has to be specified using the --namespace option or as part of the Kubernetes client configuration")
-	}
-}
-
-func WaitUntilReady(client *strimzi.Clientset, name string, namespace string, timeout uint32) (*kafkaapi.Kafka, error) {
-	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
-	defer watchContextCancel()
-
-	watcher, err := client.KafkaV1beta2().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
-	if err != nil {
-		panic(err)
-	}
-
-	defer watcher.Stop()
-
-	for {
-		select {
-		case event := <-watcher.ResultChan():
-			k := event.Object.(*kafkaapi.Kafka)
-			if IsReady(k) {
-				return k, nil
-			}
-		case <-watchContext.Done():
-			return nil, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be ready", name, namespace)
-		}
-	}
-}
-
-func IsReady(k *kafkaapi.Kafka) bool {
-	if k.Status != nil && k.Status.Conditions != nil && len(k.Status.Conditions) > 0 {
-		for _, condition := range k.Status.Conditions {
-			if condition.Type == "Ready" && condition.Status == "True" {
-				if k.Status.ObservedGeneration == k.ObjectMeta.Generation {
-					return true
-				}
-			}
-		}
-
-		return false
-	} else {
-		return false
-	}
-}
-
-func WaitUntilReconciliationPaused(client *strimzi.Clientset, name string, namespace string, timeout uint32) (*kafkaapi.Kafka, error) {
-	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
-	defer watchContextCancel()
-
-	watcher, err := client.KafkaV1beta2().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
-	if err != nil {
-		panic(err)
-	}
-
-	defer watcher.Stop()
-
-	for {
-		select {
-		case event := <-watcher.ResultChan():
-			k := event.Object.(*kafkaapi.Kafka)
-			if IsReconciliationPaused(k) {
-				return k, nil
-			}
-		case <-watchContext.Done():
-			return nil, fmt.Errorf("timed out waiting for the Kafka cluster %s in namespace %s to be paused", name, namespace)
-		}
-	}
-}
-
-func IsReconciliationPaused(k *kafkaapi.Kafka) bool {
-	if k.Status != nil && k.Status.Conditions != nil && len(k.Status.Conditions) > 0 {
-		for _, condition := range k.Status.Conditions {
-			if condition.Type == "ReconciliationPaused" && condition.Status == "True" {
-				return true
-			}
-		}
-
-		return false
-	} else {
-		return false
 	}
 }
 

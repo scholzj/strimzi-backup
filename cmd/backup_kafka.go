@@ -88,6 +88,6 @@ var (
 func init() {
 	backupCmd.AddCommand(backupKafkaCmd)
 
-	backupCmd.PersistentFlags().BoolVar(&skipCaSecrets, "skip-ca-secrets", false, "Skip backup of the Cluster and Client Certification Authority Secrets")
-	backupCmd.PersistentFlags().BoolVar(&skipUserSecrets, "skip-user-secrets", false, "Skip backup of the Kafka User Secrets")
+	backupKafkaCmd.PersistentFlags().BoolVar(&skipCaSecrets, "skip-ca-secrets", false, "Skip backup of the Cluster and Client Certification Authority Secrets")
+	backupKafkaCmd.PersistentFlags().BoolVar(&skipUserSecrets, "skip-user-secrets", false, "Skip backup of the Kafka User Secrets")
 }

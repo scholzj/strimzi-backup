@@ -45,14 +45,16 @@ Notes:
   The Strimzi Cluster Operator will just create new ones once the cluster is restored.
   As clients trust the Kafka cluster based on its Cluster CA, restoring the CLuster CA is sufficient to make sure the original trusted certificates work.
 * `strimzi-backup` does not include any third party Secrets (such as listener server certificates).
-  You are resonsible for backing them up and restoring them yourself.
+  You are responsible for backing them up and restoring them yourself.
 
 ### Restoring your Apache Kafka cluster
 
 You can restore your Kafka cluster using the `strimzi-backup restore kafka` command.
 This command will load the resources from the backup and recreate them.
-It will first recreate the Kafka cluster in the paused state, restore its Kafka Cluster ID and only at the end, once all other resources are restored as well, it will unpause it and wait for ti to get ready.
-The restore will include all resources fromt he backup file:
+It will first recreate the Kafka cluster in the paused state.
+Then it will restore its Kafka Cluster ID.
+And only in the end, once all other resources are restored as well, it will unpause it and wait for it to get ready.
+The restore will include all resources from the backup file:
 * The `Kafka` CR
 * The Secrets with the Cluster and Client Certification Authorities
 * All `KafkaNodePool` CRs belonging to this Kafka cluster
@@ -77,7 +79,54 @@ Notes:
 * In most cases, Strimzi cannot fully restore the addresses of the external listeners.
   Things such as load balancers will be newly provisioned when the cluster is restored and are likely to differ from the original ones.
 * The addresses of the internal listeners will also differ in case you change the namespace or name of the Kafka cluster.
-* The restore process expects to do the restoration into a clean environment and will currently fail if any of the resources already exists.
+* The restore process expects to do the restoration into a clean environment and will currently fail if any of the resources already exist.
+  This might be addressed in the future with the _dry-run_ and _force_ modes (see [#11](https://github.com/scholzj/strimzi-backup/issues/11) for more details).
+
+### Backing up your Apache Kafka Connect cluster
+
+You can back up your Kafka cluster using the `strimzi-backup backup connect` command.
+This command will get the Kubernetes resources and store them in a GZIP archive.
+It will include:
+* The `KafkaConnect` CR
+* All `KafkaConnector` CRs belonging to this Kafka cluster
+
+The backup command uses the following options:
+
+| Option                      | Description                                                                                                                                                                                                                                                                                                                                                                                                   | Default Value |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `--kubeconfig`              | Path to the kubeconfig file to use for Kubernetes API requests. If not specified, `strimzi-backup` will try to auto-detect the Kubernetes configuration.                                                                                                                                                                                                                                                      |               |
+| `--namespace`               | Namespace of the Kafka cluster to backup. If not specified, `strimzi-backup` will try to auto-detect and use the current namespace from your Kubernetes configuration.                                                                                                                                                                                                                                        |               |
+| `--name`                    | Name of the Kafka cluster to backup. (Required)                                                                                                                                                                                                                                                                                                                                                               |               |
+| `--filename`                | Name of the file with the backup. If not set, the backup will be _auto-generated_ based on the current time.                                                                                                                                                                                                                                                                                                  |               |
+| `--skip-metadata-cleansing` | Skip cleanup of the Kubernetes metadata in the backed up resources. Metadata cleansing removes the fields that are not useful for restoring the cluster such as the generation, timestamps, managed fields, or last applied configurations. Skipping the metadata cleansing will make the resulting backup file larger. But in some cases - for example for auditing purposes - the metadata might be useful. | `false`       |
+
+Notes:
+* The backup process does not back up any data the original Connect cluster had stored in its Kafka cluster (such as offset information etc.).
+* `strimzi-backup` does not include any third party Secrets (such as database server certificates or passwords).
+  You are responsible for backing them up and restoring them yourself.
+
+### Restoring your Apache Kafka Connect cluster
+
+You can restore your Kafka Connect cluster using the `strimzi-backup restore connect` command.
+This command will load the resources from the backup and recreate them.
+It will first recreate the Connect cluster together with any Connector resources and wait for it to get ready.
+The restore will include all resources from the backup file:
+* The `KafkaConnect` CR
+* All `KafkaConnector` CRs belonging to this Connect cluster
+
+The restore command uses the following options:
+
+| Option                | Description                                                                                                                                                                                                                                                    | Default Value |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| `--kubeconfig`        | Path to the kubeconfig file to use for Kubernetes API requests. If not specified, `strimzi-backup` will try to auto-detect the Kubernetes configuration.                                                                                                       |               |
+| `--namespace`         | Namespace in which the Kafka Connect cluster should be restored. If not specified, `strimzi-backup` will try to auto-detect and use the current namespace from your Kubernetes configuration. This might differ from the original name when the back was done. |               |
+| `--name`              | Name of the restored Kafka Connect cluster. This might differ from the original name when the back was done. `strimzi-backup` will rename the cluster accordingly. (Required)                                                                                  |               |
+| `--filename`          | Name of the file with the backup which should be restored. (Required)                                                                                                                                                                                          |               |
+| `--timeout`           | Timeout for how long to wait for the cluster to restore. In milliseconds.                                                                                                                                                                                      | `300000`      |
+
+Notes:
+* The restore process does not restore any data the original Connect cluster had stored in its Kafka cluster (such as offset information etc.).
+* The restore process expects to do the restoration into a clean environment and will currently fail if any of the resources already exist.
   This might be addressed in the future with the _dry-run_ and _force_ modes (see [#11](https://github.com/scholzj/strimzi-backup/issues/11) for more details).
 
 ### Exporting the resources from the backup
@@ -94,7 +143,6 @@ The export command uses the following options:
 
 There are several features I plan to add in the future.
 The major ones are:
-* Support for Kafka Connect and Connectors
 * Support for data backup for Kafka clusters
 * Support for backing up into Config Map / Secret to allow running the tool from a CronJob
 * Tests 🙄
@@ -110,4 +158,4 @@ There are currently no plans to support ZooKeeper-based clusters.
 
 Currently, the support is planned only for Apache Kafka and Apache Kafka Connect clusters, which consist of multiple custom resources, and (in case of Apache Kafka clusters) use persistent volumes to store data.
 The other resources such as Mirror Maker 2 or Bridge are stateless and consist of a single custom resource.
-So you can easily back them up with `kubectl get ... -o yaml` and do not need any special tools.
+So you can back them up with `kubectl get ... -o yaml` and do not need any special tools.
