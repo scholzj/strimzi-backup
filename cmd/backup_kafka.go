@@ -42,35 +42,41 @@ var (
 
 			if err := b.BackupKafka(); err != nil {
 				slog.Error("Failed to backup Kafka", "error", err)
-				panic(1)
+				b.Discard()
+				os.Exit(1)
 			}
 
 			if err := b.BackupKafkaNodePools(); err != nil {
 				slog.Error("Failed to backup Kafka node pools", "error", err)
-				panic(1)
+				b.Discard()
+				os.Exit(1)
 			}
 
 			if !skipCaSecrets {
 				if err := b.BackupCaSecrets(); err != nil {
 					slog.Error("Failed to backup CA Secrets", "error", err)
-					panic(1)
+					b.Discard()
+					os.Exit(1)
 				}
 			}
 
 			if err := b.BackupKafkaTopics(); err != nil {
 				slog.Error("Failed to backup Kafka topics", "error", err)
-				panic(1)
+				b.Discard()
+				os.Exit(1)
 			}
 
 			if err := b.BackupKafkaUsers(); err != nil {
 				slog.Error("Failed to backup Kafka users", "error", err)
-				panic(1)
+				b.Discard()
+				os.Exit(1)
 			}
 
 			if !skipUserSecrets {
 				if err := b.BackupUserSecrets(); err != nil {
 					slog.Error("Failed to backup User Secrets", "error", err)
-					panic(1)
+					b.Discard()
+					os.Exit(1)
 				}
 			}
 

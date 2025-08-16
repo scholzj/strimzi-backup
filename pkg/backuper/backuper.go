@@ -113,3 +113,13 @@ func (b *Backuper) Close() {
 		}
 	}
 }
+
+func (b *Backuper) Discard() {
+	b.Close()
+
+	slog.Info("Removing incomplete backup file", "filename", b.backupFile.Name())
+
+	if err := os.Remove(b.backupFile.Name()); err != nil {
+		slog.Error("Failed to remove discarded backup file", "error", err)
+	}
+}
