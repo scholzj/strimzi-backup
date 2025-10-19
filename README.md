@@ -4,6 +4,16 @@ _Note: This is not part of the Strimzi Cloud Native Computing Foundation (CNCF) 
 
 Strimzi Backup is a CLI tool for backing up and restoring your [Strimzi-based Apache Kafka cluster](https://strimzi.io).
 
+## Supported Strimzi versions
+
+When using an older Strimzi Backup version with a new Strimzi deployment, some fields might be missing in the backup.
+Please check the table below to see which Strimzi version is supported by which Strimzi Backup version.
+
+| Strimzi Backup Version | Strimzi version |
+|------------------------|-----------------|
+| `0.2.1`                | 0.48.x          |
+| `0.2.0`                | 0.47.x          |
+
 ## How to use Strimzi Backup?
 
 ### Installation
@@ -42,9 +52,9 @@ The backup command uses the following options:
 
 Notes:
 * The server certificates used by the different nodes are not part of the backup.
-  The Strimzi Cluster Operator will just create new ones once the cluster is restored.
-  As clients trust the Kafka cluster based on its Cluster CA, restoring the CLuster CA is sufficient to make sure the original trusted certificates work.
-* `strimzi-backup` does not include any third party Secrets (such as listener server certificates).
+  The Strimzi Cluster Operator will create new ones once the cluster is restored.
+  As clients trust the Kafka cluster based on its Cluster CA, restoring the Cluster CA is sufficient to make sure the original trusted certificates work.
+* `strimzi-backup` does not include any third-party Secrets (such as listener server certificates).
   You are responsible for backing them up and restoring them yourself.
 
 ### Restoring your Apache Kafka cluster
@@ -156,6 +166,6 @@ There are currently no plans to support ZooKeeper-based clusters.
 
 ### Any plans to support other Strimzi resources?
 
-Currently, the support is planned only for Apache Kafka and Apache Kafka Connect clusters, which consist of multiple custom resources, and (in case of Apache Kafka clusters) use persistent volumes to store data.
+Currently, the support is planned only for Apache Kafka and Apache Kafka Connect clusters, which consist of multiple custom resources and (in case of Apache Kafka clusters) use persistent volumes to store data.
 The other resources such as Mirror Maker 2 or Bridge are stateless and consist of a single custom resource.
 So you can back them up with `kubectl get ... -o yaml` and do not need any special tools.
