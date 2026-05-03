@@ -91,6 +91,7 @@ func newRoundTripFakeDynamicClient(objects ...runtime.Object) *dynamicfake.FakeD
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
 		utils.KafkaGVR:          "KafkaList",
 		utils.KafkaNodePoolGVR:  "KafkaNodePoolList",
+		utils.KafkaRebalanceGVR: "KafkaRebalanceList",
 		utils.KafkaTopicGVR:     "KafkaTopicList",
 		utils.KafkaUserGVR:      "KafkaUserList",
 		utils.KafkaConnectGVR:   "KafkaConnectList",
