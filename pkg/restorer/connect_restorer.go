@@ -17,16 +17,12 @@ limitations under the License.
 package restorer
 
 import (
-	"context"
 	"fmt"
 	"github.com/scholzj/strimzi-backup/pkg/backuper"
 	"github.com/scholzj/strimzi-backup/pkg/utils"
-	"github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1beta2"
 	"github.com/spf13/cobra"
 	"io"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log/slog"
-	"sigs.k8s.io/yaml"
 )
 
 type ConnectRestorer struct {
@@ -100,19 +96,16 @@ func (r *ConnectRestorer) RestoreKafkaConnect() error {
 }
 
 func (r *ConnectRestorer) restoreKafkaConnect(resource []byte) error {
-	var connect *v1beta2.KafkaConnect
-
-	if err := yaml.Unmarshal(resource, &connect); err != nil {
+	connect, err := utils.DecodeResource(resource)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka Connect resource", "error", err)
 		return err
 	}
 
-	// We update the metadata and pause the resource
-	utils.CleanseMetadata(&connect.ObjectMeta)
-	connect.Namespace = r.Namespace
-	connect.Name = r.Name
+	connect.SetNamespace(r.Namespace)
+	connect.SetName(r.Name)
 
-	if _, err := r.StrimziClient.KafkaV1beta2().KafkaConnects(r.Namespace).Create(context.TODO(), connect, metav1.CreateOptions{}); err != nil {
+	if err := r.createRawResource(utils.KafkaConnectGVR, connect); err != nil {
 		slog.Error("Failed to restore the Kafka Connect resource", "error", err)
 		return err
 	}
@@ -134,21 +127,19 @@ func (r *ConnectRestorer) waitForReadiness() error {
 }
 
 func (r *ConnectRestorer) restoreKafkaConnectors(resources []byte) error {
-	var connectors *v1beta2.KafkaConnectorList
-
-	if err := yaml.Unmarshal(resources, &connectors); err != nil {
+	connectors, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka Connector resources", "error", err)
 		return err
 	}
 
 	for _, connector := range connectors.Items {
-		slog.Info("Restoring Kafka Connectors", "name", connector.Name, "namespace", connector.Namespace)
+		slog.Info("Restoring Kafka Connectors", "name", connector.GetName(), "namespace", connector.GetNamespace())
 
-		utils.CleanseMetadata(&connector.ObjectMeta)
-		r.updateNamespaceAndClusterName(&connector.ObjectMeta)
+		r.updateNamespaceAndClusterName(&connector)
 
-		if _, err := r.StrimziClient.KafkaV1beta2().KafkaConnectors(r.Namespace).Create(context.TODO(), &connector, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Kafka Connector resource", "name", connector.Name, "namespace", connector.Namespace, "error", err)
+		if err := r.createRawResource(utils.KafkaConnectorGVR, &connector); err != nil {
+			slog.Error("Failed to restore the Kafka Connector resource", "name", connector.GetName(), "namespace", connector.GetNamespace(), "error", err)
 			return err
 		}
 	}

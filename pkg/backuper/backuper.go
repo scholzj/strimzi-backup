@@ -23,6 +23,8 @@ import (
 	"github.com/scholzj/strimzi-backup/pkg/utils"
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"log/slog"
 	"os"
@@ -31,6 +33,7 @@ import (
 
 type Backuper struct {
 	KubernetesClient      *kubernetes.Clientset
+	DynamicClient         dynamic.Interface
 	StrimziClient         *strimzi.Clientset
 	Namespace             string
 	Name                  string
@@ -47,7 +50,7 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 		return nil, fmt.Errorf("--name option is required")
 	}
 
-	kubeClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
+	kubeClient, dynamicClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
 	if err != nil {
 		slog.Error("Failed to create Kubernetes clients", "error", err)
 		return nil, err
@@ -74,6 +77,7 @@ func NewBackuper(cmd *cobra.Command) (*Backuper, error) {
 
 	backuper := Backuper{
 		KubernetesClient:      kubeClient,
+		DynamicClient:         dynamicClient,
 		StrimziClient:         strimziClient,
 		Namespace:             namespace,
 		Name:                  name,
@@ -122,4 +126,37 @@ func (b *Backuper) Discard() {
 	if err := os.Remove(b.backupFile.Name()); err != nil {
 		slog.Error("Failed to remove discarded backup file", "error", err)
 	}
+}
+
+func (b *Backuper) startStream(name string, comment string) {
+	b.gzipWriter.Reset(b.bufferedWriter)
+	b.gzipWriter.Name = name
+	b.gzipWriter.Comment = comment
+	b.gzipWriter.ModTime = time.Now()
+}
+
+func (b *Backuper) writeResource(resource *unstructured.Unstructured) error {
+	resourceYaml, err := utils.EncodeResource(resource)
+	if err != nil {
+		return err
+	}
+
+	if _, err = b.gzipWriter.Write(resourceYaml); err != nil {
+		return err
+	}
+
+	return b.gzipWriter.Close()
+}
+
+func (b *Backuper) writeResourceList(resources *unstructured.UnstructuredList) error {
+	resourcesYaml, err := utils.EncodeResourceList(resources)
+	if err != nil {
+		return err
+	}
+
+	if _, err = b.gzipWriter.Write(resourcesYaml); err != nil {
+		return err
+	}
+
+	return b.gzipWriter.Close()
 }

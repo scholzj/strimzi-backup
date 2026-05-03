@@ -21,6 +21,7 @@ import (
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -30,37 +31,47 @@ import (
 	"path/filepath"
 )
 
-func CreateKubernetesClients(cmd *cobra.Command) (*kubernetes.Clientset, *strimzi.Clientset, string, error) {
+func CreateKubernetesClients(cmd *cobra.Command) (*kubernetes.Clientset, dynamic.Interface, *strimzi.Clientset, string, error) {
 	kubeConfigFlag := cmd.Flag("kubeconfig").Value.String()
 	namespaceFlag := cmd.Flag("namespace").Value.String()
 
 	kubeConfig, kubeConfigNamespace, err := tryToFindKubeConfigAndCurrentNamespace(kubeConfigFlag)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
 	namespace, err := determineNamespaceFromOptionOrKubeConfig(namespaceFlag, kubeConfigNamespace)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
 	kubeClient, err := createKubernetesClient(kubeConfig)
 	if err != nil {
 		slog.Error("Failed to create Kubernetes client", "error", err)
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
+	}
+
+	dynamicClient, err := createDynamicClient(kubeConfig)
+	if err != nil {
+		slog.Error("Failed to create dynamic Kubernetes client", "error", err)
+		return nil, nil, nil, "", err
 	}
 
 	strimziClient, err := createStrimziClient(kubeConfig)
 	if err != nil {
 		slog.Error("Failed to create Strimzi client", "error", err)
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
-	return kubeClient, strimziClient, namespace, nil
+	return kubeClient, dynamicClient, strimziClient, namespace, nil
 }
 
 func createKubernetesClient(kubeConfig *rest.Config) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(kubeConfig)
+}
+
+func createDynamicClient(kubeConfig *rest.Config) (dynamic.Interface, error) {
+	return dynamic.NewForConfig(kubeConfig)
 }
 
 func createStrimziClient(kubeConfig *rest.Config) (*strimzi.Clientset, error) {

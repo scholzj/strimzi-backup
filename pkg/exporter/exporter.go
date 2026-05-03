@@ -82,22 +82,23 @@ func (e *Exporter) Export() error {
 
 		if _, err := io.Copy(bufferedWriter, e.gzipReader); err != nil {
 			slog.Error("Failed to export data", "error", err, "file", exportFilename)
+			_ = exportFile.Close()
+			return err
+		}
+
+		if err := bufferedWriter.Flush(); err != nil {
+			slog.Error("Failed to flush writer", "error", err, "file", exportFilename)
+			_ = exportFile.Close()
+			return err
+		}
+		if err := exportFile.Close(); err != nil {
+			slog.Error("Failed to close export file", "error", err, "file", exportFilename)
 			return err
 		}
 
 		if err := e.gzipReader.Reset(e.bufferedReader); err != nil {
 			if err == io.EOF {
 				slog.Info("Exporting data completed", "name", exportFilename)
-
-				// Cleanup after the exported file
-				if err := bufferedWriter.Flush(); err != nil {
-					slog.Error("Failed to flush writer", "error", err, "file", exportFilename)
-					return err
-				}
-				if err := exportFile.Close(); err != nil {
-					slog.Error("Failed to close export file", "error", err, "file", exportFilename)
-					return err
-				}
 
 				break
 			} else {

@@ -19,7 +19,7 @@ package utils
 import (
 	"context"
 	"fmt"
-	kafkaapi "github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1beta2"
+	kafkaapi "github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1"
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -30,7 +30,7 @@ func WaitUntilKafkaReady(client *strimzi.Clientset, name string, namespace strin
 	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
 	defer watchContextCancel()
 
-	watcher, err := client.KafkaV1beta2().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
+	watcher, err := client.KafkaV1().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +54,7 @@ func WaitUntilConnectReady(client *strimzi.Clientset, name string, namespace str
 	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
 	defer watchContextCancel()
 
-	watcher, err := client.KafkaV1beta2().KafkaConnects(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
+	watcher, err := client.KafkaV1().KafkaConnects(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +110,7 @@ func WaitUntilKafkaReconciliationPaused(client *strimzi.Clientset, name string, 
 	watchContext, watchContextCancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(timeout))
 	defer watchContextCancel()
 
-	watcher, err := client.KafkaV1beta2().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
+	watcher, err := client.KafkaV1().Kafkas(namespace).Watch(watchContext, metav1.ListOptions{FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()})
 	if err != nil {
 		panic(err)
 	}

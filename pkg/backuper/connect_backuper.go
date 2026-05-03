@@ -19,12 +19,9 @@ package backuper
 import (
 	"context"
 	"github.com/scholzj/strimzi-backup/pkg/utils"
-	"github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1beta2"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log/slog"
-	"sigs.k8s.io/yaml"
-	"time"
 )
 
 type ConnectBackuper struct {
@@ -46,39 +43,22 @@ func NewConnectBackuper(cmd *cobra.Command) (*ConnectBackuper, error) {
 }
 
 func (b *ConnectBackuper) BackupConnect() error {
-	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = ConnectFilename
-	b.gzipWriter.Comment = "Connect cluster"
-	b.gzipWriter.ModTime = time.Now()
+	b.startStream(ConnectFilename, "Connect cluster")
 
 	slog.Info("Backing up the KafkaConnect resource", "name", b.Name)
 
-	resource, err := b.StrimziClient.KafkaV1beta2().KafkaConnects(b.Namespace).Get(context.TODO(), b.Name, metav1.GetOptions{})
+	resource, err := b.DynamicClient.Resource(utils.KafkaConnectGVR).Namespace(b.Namespace).Get(context.TODO(), b.Name, metav1.GetOptions{})
 	if err != nil {
 		slog.Error("Failed to get the KafkaConnect cluster", "name", b.Name, "namespace", b.Namespace, "error", err)
 		return err
 	}
 
 	if !b.skipMetadataCleansing {
-		// Cleanse the metadata
-		utils.CleanseMetadata(&resource.ObjectMeta)
+		utils.CleanseResourceMetadata(resource)
 	}
 
-	resourceYaml, err := yaml.Marshal(resource)
-	if err != nil {
+	if err := b.writeResource(resource); err != nil {
 		slog.Error("Failed to marshal the Kafka cluster to YAML", "error", err)
-		return err
-	}
-
-	_, err = b.gzipWriter.Write(resourceYaml)
-	if err != nil {
-		slog.Error("Failed to write the YAML to the backup file", "error", err)
-		return err
-	}
-
-	err = b.gzipWriter.Close()
-	if err != nil {
-		slog.Error("Failed to close the GZIP writer when resetting the stream", "error", err)
 		return err
 	}
 
@@ -88,50 +68,26 @@ func (b *ConnectBackuper) BackupConnect() error {
 }
 
 func (b *ConnectBackuper) BackupKafkaConnectors() error {
-	b.gzipWriter.Reset(b.bufferedWriter)
-	b.gzipWriter.Name = ConnectorsFilename
-	b.gzipWriter.Comment = "List of Kafka Connectors"
-	b.gzipWriter.ModTime = time.Now()
+	b.startStream(ConnectorsFilename, "List of Kafka Connectors")
 
 	slog.Info("Backing up the KafkaConnector resources", "labelSelector", "strimzi.io/cluster="+b.Name)
 
-	resources, err := b.StrimziClient.KafkaV1beta2().KafkaConnectors(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/cluster=" + b.Name})
+	resources, err := b.DynamicClient.Resource(utils.KafkaConnectorGVR).Namespace(b.Namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "strimzi.io/cluster=" + b.Name})
 	if err != nil {
 		slog.Error("Failed to get KafkaConnector belonging to the Kafka Connect cluster", "name", b.Name, "namespace", b.Namespace, "error", err)
 		return err
 	}
 
 	if !b.skipMetadataCleansing {
-		// Cleanse the metadata
-		b.cleanseKafkaConnectorMetadata(resources)
+		utils.CleanseResourceListMetadata(resources)
 	}
 
-	resourcesYaml, err := yaml.Marshal(resources)
-	if err != nil {
+	if err := b.writeResourceList(resources); err != nil {
 		slog.Error("Failed to marshal the KafkaConnectors to YAML", "error", err)
-		return err
-	}
-
-	_, err = b.gzipWriter.Write(resourcesYaml)
-	if err != nil {
-		slog.Error("Failed to write the YAML to the backup file", "error", err)
-		return err
-	}
-
-	err = b.gzipWriter.Close()
-	if err != nil {
-		slog.Error("Failed to close the GZIP writer when resetting the stream", "error", err)
 		return err
 	}
 
 	slog.Info("Backup of the KafkaConnectors resources complete", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	return nil
-}
-
-func (b *ConnectBackuper) cleanseKafkaConnectorMetadata(resources *v1beta2.KafkaConnectorList) {
-	// We want to avoid copying the resource, so we use the index
-	for i := range resources.Items {
-		utils.CleanseMetadata(&resources.Items[i].ObjectMeta)
-	}
 }

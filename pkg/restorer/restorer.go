@@ -19,11 +19,15 @@ package restorer
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"github.com/scholzj/strimzi-backup/pkg/utils"
 	strimzi "github.com/scholzj/strimzi-go/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"log/slog"
 	"os"
@@ -31,6 +35,7 @@ import (
 
 type Restorer struct {
 	KubernetesClient *kubernetes.Clientset
+	DynamicClient    dynamic.Interface
 	StrimziClient    *strimzi.Clientset
 	Namespace        string
 	Name             string
@@ -53,7 +58,7 @@ func NewRestorer(cmd *cobra.Command) (*Restorer, error) {
 		return nil, err
 	}
 
-	kubeClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
+	kubeClient, dynamicClient, strimziClient, namespace, err := utils.CreateKubernetesClients(cmd)
 	if err != nil {
 		slog.Error("Failed to create Kubernetes clients", "error", err)
 		return nil, err
@@ -75,6 +80,7 @@ func NewRestorer(cmd *cobra.Command) (*Restorer, error) {
 
 	restorer := Restorer{
 		KubernetesClient: kubeClient,
+		DynamicClient:    dynamicClient,
 		StrimziClient:    strimziClient,
 		Namespace:        namespace,
 		Name:             name,
@@ -87,13 +93,20 @@ func NewRestorer(cmd *cobra.Command) (*Restorer, error) {
 	return &restorer, nil
 }
 
-func (r *Restorer) updateNamespaceAndClusterName(metadata *metav1.ObjectMeta) {
-	metadata.Namespace = r.Namespace
-	if metadata.Labels == nil {
-		metadata.Labels = map[string]string{"strimzi.io/cluster": r.Name}
-	} else {
-		metadata.Labels["strimzi.io/cluster"] = r.Name
+func (r *Restorer) updateNamespaceAndClusterName(resource *unstructured.Unstructured) {
+	utils.UpdateNamespaceAndClusterName(resource, r.Namespace, r.Name)
+}
+
+func (r *Restorer) createRawResource(gvr schema.GroupVersionResource, resource *unstructured.Unstructured) error {
+	utils.CleanseResourceMetadata(resource)
+	utils.RemoveStatus(resource)
+	resource.SetNamespace(r.Namespace)
+
+	if _, err := r.DynamicClient.Resource(gvr).Namespace(r.Namespace).Create(context.TODO(), resource, metav1.CreateOptions{}); err != nil {
+		return err
 	}
+
+	return nil
 }
 
 func (r *Restorer) Close() {
