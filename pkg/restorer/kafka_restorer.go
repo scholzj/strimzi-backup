@@ -21,13 +21,11 @@ import (
 	"fmt"
 	"github.com/scholzj/strimzi-backup/pkg/backuper"
 	"github.com/scholzj/strimzi-backup/pkg/utils"
-	"github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1beta2"
 	"github.com/spf13/cobra"
 	"io"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"log/slog"
-	"sigs.k8s.io/yaml"
 	"strings"
 )
 
@@ -85,82 +83,12 @@ func (r *KafkaRestorer) RestoreKafka() error {
 			return err
 		}
 
-		switch r.gzipReader.Name {
-		case backuper.KafkaFilename:
-			slog.Info("Restoring paused Kafka resource")
-
-			clusterId, err = r.restoreKafka(resources)
-			if err != nil {
-				slog.Error("Failed to restore Kafka resource", "error", err)
-				return err
-			}
-
-			slog.Info("Kafka resource was restored in paused state")
-
-			break
-		case backuper.CaSecretsFilename:
-			if r.skipCaSecrets {
-				slog.Warn("Skipping restoring CA Secrets")
-			} else {
-				slog.Info("Restoring CA Secrets")
-
-				if err := r.restoreCaSecrets(resources); err != nil {
-					slog.Error("Failed to restore CA Secrets", "error", err)
-					return err
-				}
-
-				slog.Info("CA Secrets were restored")
-			}
-
-			break
-		case backuper.KafkaNodePoolsFilename:
-			slog.Info("Restoring Kafka Node Pools")
-
-			if err := r.restoreKafkaNodePools(resources); err != nil {
-				slog.Error("Failed to restore Kafka Node Pool resources", "error", err)
-				return err
-			}
-
-			slog.Info("Kafka Node Pools were restored")
-			break
-		case backuper.KafkaUsersFilename:
-			slog.Info("Restoring Kafka Users")
-
-			if err := r.restoreKafkaUsers(resources); err != nil {
-				slog.Error("Failed to restore Kafka Users resources", "error", err)
-				return err
-			}
-
-			slog.Info("Kafka Users were restored")
-			break
-		case backuper.KafkaTopicsFilename:
-			slog.Info("Restoring Kafka Topics")
-
-			if err := r.restoreKafkaTopics(resources); err != nil {
-				slog.Error("Failed to restore Kafka Topic resources", "error", err)
-				return err
-			}
-
-			slog.Info("Kafka Topics were restored")
-			break
-		case backuper.KafkaUserSecretsFilename:
-			if r.skipCaSecrets {
-				slog.Warn("Skipping restoring Kafka User Secrets")
-			} else {
-				slog.Info("Restoring Kafka User Secrets")
-
-				if err := r.restoreSecrets(resources); err != nil {
-					slog.Error("Failed to restore Kafka User Secrets", "error", err)
-					return err
-				}
-
-				slog.Info("Kafka User Secrets were restored")
-			}
-
-			break
-		default:
-			slog.Error("Unknown resources found in backup", "name", r.gzipReader.Name, "comment", r.gzipReader.Comment, "modTime", r.gzipReader.ModTime)
-			return fmt.Errorf("unknown resources %v found in backup", r.gzipReader.Name)
+		currentClusterId, err := r.restoreStream(r.gzipReader.Name, resources)
+		if err != nil {
+			return err
+		}
+		if currentClusterId != "" {
+			clusterId = currentClusterId
 		}
 
 		if err := r.gzipReader.Reset(r.bufferedReader); err != nil {
@@ -188,46 +116,116 @@ func (r *KafkaRestorer) RestoreKafka() error {
 	return nil
 }
 
-func (r *KafkaRestorer) restoreKafka(resource []byte) (string, error) {
-	var kafka *v1beta2.Kafka
+func (r *KafkaRestorer) restoreStream(streamName string, resources []byte) (string, error) {
+	switch streamName {
+	case backuper.KafkaFilename:
+		slog.Info("Restoring paused Kafka resource")
 
-	if err := yaml.Unmarshal(resource, &kafka); err != nil {
+		clusterId, err := r.restoreKafka(resources)
+		if err != nil {
+			slog.Error("Failed to restore Kafka resource", "error", err)
+			return "", err
+		}
+
+		slog.Info("Kafka resource was restored in paused state")
+		return clusterId, nil
+	case backuper.CaSecretsFilename:
+		if r.skipCaSecrets {
+			slog.Warn("Skipping restoring CA Secrets")
+			return "", nil
+		}
+
+		slog.Info("Restoring CA Secrets")
+		if err := r.restoreCaSecrets(resources); err != nil {
+			slog.Error("Failed to restore CA Secrets", "error", err)
+			return "", err
+		}
+		slog.Info("CA Secrets were restored")
+		return "", nil
+	case backuper.KafkaNodePoolsFilename:
+		slog.Info("Restoring Kafka Node Pools")
+		if err := r.restoreKafkaNodePools(resources); err != nil {
+			slog.Error("Failed to restore Kafka Node Pool resources", "error", err)
+			return "", err
+		}
+		slog.Info("Kafka Node Pools were restored")
+		return "", nil
+	case backuper.KafkaUsersFilename:
+		slog.Info("Restoring Kafka Users")
+		if err := r.restoreKafkaUsers(resources); err != nil {
+			slog.Error("Failed to restore Kafka Users resources", "error", err)
+			return "", err
+		}
+		slog.Info("Kafka Users were restored")
+		return "", nil
+	case backuper.KafkaTopicsFilename:
+		slog.Info("Restoring Kafka Topics")
+		if err := r.restoreKafkaTopics(resources); err != nil {
+			slog.Error("Failed to restore Kafka Topic resources", "error", err)
+			return "", err
+		}
+		slog.Info("Kafka Topics were restored")
+		return "", nil
+	case backuper.KafkaUserSecretsFilename:
+		if r.skipUserSecrets {
+			slog.Warn("Skipping restoring Kafka User Secrets")
+			return "", nil
+		}
+
+		slog.Info("Restoring Kafka User Secrets")
+		if err := r.restoreSecrets(resources); err != nil {
+			slog.Error("Failed to restore Kafka User Secrets", "error", err)
+			return "", err
+		}
+		slog.Info("Kafka User Secrets were restored")
+		return "", nil
+	default:
+		slog.Error("Unknown resources found in backup", "name", streamName)
+		return "", fmt.Errorf("unknown resources %v found in backup", streamName)
+	}
+}
+
+func (r *KafkaRestorer) restoreKafka(resource []byte) (string, error) {
+	kafka, err := utils.DecodeResource(resource)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka resource", "error", err)
 		return "", err
 	}
 
-	// We update the metadata and pause the resource
-	utils.CleanseMetadata(&kafka.ObjectMeta)
-	kafka.Namespace = r.Namespace
-	kafka.Name = r.Name
-	if kafka.Annotations == nil {
-		kafka.Annotations = map[string]string{"strimzi.io/pause-reconciliation": "true"}
-	} else {
-		kafka.Annotations["strimzi.io/pause-reconciliation"] = "true"
+	clusterId, _, err := unstructured.NestedString(kafka.Object, "status", "clusterId")
+	if err != nil {
+		slog.Error("Failed to get Kafka Cluster ID from the raw resource", "error", err)
+		return "", err
 	}
 
-	if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Create(context.TODO(), kafka, metav1.CreateOptions{}); err != nil {
+	kafka.SetNamespace(r.Namespace)
+	kafka.SetName(r.Name)
+
+	annotations := kafka.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{"strimzi.io/pause-reconciliation": "true"}
+	} else {
+		annotations["strimzi.io/pause-reconciliation"] = "true"
+	}
+	kafka.SetAnnotations(annotations)
+
+	if err := r.createRawResource(utils.KafkaGVR, kafka); err != nil {
 		slog.Error("Failed to restore the Kafka resource", "error", err)
 		return "", err
 	}
 
 	// Wait for the paused reconciliation to be confirmed
-	_, err := utils.WaitUntilKafkaReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
+	_, err = utils.WaitUntilKafkaReconciliationPaused(r.StrimziClient, r.Name, r.Namespace, r.Timeout)
 	if err != nil {
 		slog.Error("The Kafka resource was not paused. Please check the Cluster Operator logs for more details.", "error", err)
 		return "", err
 	}
 
-	// We recover the Cluster ID for later
-	if kafka.Status != nil && kafka.Status.ClusterId != "" {
-		return kafka.Status.ClusterId, nil
-	} else {
-		return "", nil
-	}
+	return clusterId, nil
 }
 
 func (r *KafkaRestorer) restoreKafkaClusterId(clusterId string) error {
-	kafka, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
+	kafka, err := r.StrimziClient.KafkaV1().Kafkas(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
 	if err != nil {
 		slog.Error("Failed to restore the Kafka resource", "error", err)
 		return err
@@ -242,7 +240,7 @@ func (r *KafkaRestorer) restoreKafkaClusterId(clusterId string) error {
 			kafkaWithClusterId := kafka.DeepCopy()
 			kafkaWithClusterId.Status.ClusterId = clusterId
 
-			if _, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).UpdateStatus(context.TODO(), kafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
+			if _, err := r.StrimziClient.KafkaV1().Kafkas(r.Namespace).UpdateStatus(context.TODO(), kafkaWithClusterId, metav1.UpdateOptions{}); err != nil {
 				slog.Error("Failed to update the status of the Kafka resource and set the Cluster ID", "error", err)
 				return err
 			}
@@ -255,7 +253,7 @@ func (r *KafkaRestorer) restoreKafkaClusterId(clusterId string) error {
 }
 
 func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
-	kafka, err := r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
+	kafka, err := r.StrimziClient.KafkaV1().Kafkas(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
 	if err != nil {
 		slog.Error("Failed to get the Kafka resource", "name", r.Name, "namespace", r.Namespace, "error", err)
 		return err
@@ -271,7 +269,7 @@ func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
 			unpausedKafka.Annotations["strimzi.io/pause-reconciliation"] = "false"
 		}
 
-		_, err = r.StrimziClient.KafkaV1beta2().Kafkas(r.Namespace).Update(context.TODO(), unpausedKafka, metav1.UpdateOptions{})
+		_, err = r.StrimziClient.KafkaV1().Kafkas(r.Namespace).Update(context.TODO(), unpausedKafka, metav1.UpdateOptions{})
 		if err != nil {
 			slog.Error("Failed to unpause the Kafka resource", "name", r.Name, "namespace", r.Namespace, "error", err)
 			return err
@@ -302,21 +300,19 @@ func (r *KafkaRestorer) unpauseKafkaClusterAndWaitForReadiness() error {
 }
 
 func (r *KafkaRestorer) restoreKafkaNodePools(resources []byte) error {
-	var nodePools *v1beta2.KafkaNodePoolList
-
-	if err := yaml.Unmarshal(resources, &nodePools); err != nil {
+	nodePools, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka Node Pool resources", "error", err)
 		return err
 	}
 
 	for _, nodePool := range nodePools.Items {
-		slog.Info("Restoring Kafka Node Pool", "name", nodePool.Name, "namespace", nodePool.Namespace)
+		slog.Info("Restoring Kafka Node Pool", "name", nodePool.GetName(), "namespace", nodePool.GetNamespace())
 
-		utils.CleanseMetadata(&nodePool.ObjectMeta)
-		r.updateNamespaceAndClusterName(&nodePool.ObjectMeta)
+		r.updateNamespaceAndClusterName(&nodePool)
 
-		if _, err := r.StrimziClient.KafkaV1beta2().KafkaNodePools(r.Namespace).Create(context.TODO(), &nodePool, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Kafka Node Pool resource", "name", nodePool.Name, "namespace", nodePool.Namespace, "error", err)
+		if err := r.createRawResource(utils.KafkaNodePoolGVR, &nodePool); err != nil {
+			slog.Error("Failed to restore the Kafka Node Pool resource", "name", nodePool.GetName(), "namespace", nodePool.GetNamespace(), "error", err)
 			return err
 		}
 	}
@@ -325,21 +321,19 @@ func (r *KafkaRestorer) restoreKafkaNodePools(resources []byte) error {
 }
 
 func (r *KafkaRestorer) restoreKafkaUsers(resources []byte) error {
-	var users *v1beta2.KafkaUserList
-
-	if err := yaml.Unmarshal(resources, &users); err != nil {
+	users, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka User resources", "error", err)
 		return err
 	}
 
 	for _, user := range users.Items {
-		slog.Info("Restoring Kafka User", "name", user.Name, "namespace", user.Namespace)
+		slog.Info("Restoring Kafka User", "name", user.GetName(), "namespace", user.GetNamespace())
 
-		utils.CleanseMetadata(&user.ObjectMeta)
-		r.updateNamespaceAndClusterName(&user.ObjectMeta)
+		r.updateNamespaceAndClusterName(&user)
 
-		if _, err := r.StrimziClient.KafkaV1beta2().KafkaUsers(r.Namespace).Create(context.TODO(), &user, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Kafka User resource", "name", user.Name, "namespace", user.Namespace, "error", err)
+		if err := r.createRawResource(utils.KafkaUserGVR, &user); err != nil {
+			slog.Error("Failed to restore the Kafka User resource", "name", user.GetName(), "namespace", user.GetNamespace(), "error", err)
 			return err
 		}
 	}
@@ -348,21 +342,19 @@ func (r *KafkaRestorer) restoreKafkaUsers(resources []byte) error {
 }
 
 func (r *KafkaRestorer) restoreKafkaTopics(resources []byte) error {
-	var topics *v1beta2.KafkaTopicList
-
-	if err := yaml.Unmarshal(resources, &topics); err != nil {
+	topics, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Kafka Topic resources", "error", err)
 		return err
 	}
 
 	for _, topic := range topics.Items {
-		slog.Info("Restoring Kafka Topic", "name", topic.Name, "namespace", topic.Namespace)
+		slog.Info("Restoring Kafka Topic", "name", topic.GetName(), "namespace", topic.GetNamespace())
 
-		utils.CleanseMetadata(&topic.ObjectMeta)
-		r.updateNamespaceAndClusterName(&topic.ObjectMeta)
+		r.updateNamespaceAndClusterName(&topic)
 
-		if _, err := r.StrimziClient.KafkaV1beta2().KafkaTopics(r.Namespace).Create(context.TODO(), &topic, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Kafka Topic resource", "name", topic.Name, "namespace", topic.Namespace, "error", err)
+		if err := r.createRawResource(utils.KafkaTopicGVR, &topic); err != nil {
+			slog.Error("Failed to restore the Kafka Topic resource", "name", topic.GetName(), "namespace", topic.GetNamespace(), "error", err)
 			return err
 		}
 	}
@@ -371,32 +363,30 @@ func (r *KafkaRestorer) restoreKafkaTopics(resources []byte) error {
 }
 
 func (r *KafkaRestorer) restoreCaSecrets(resources []byte) error {
-	var secrets *v1.SecretList
-
-	if err := yaml.Unmarshal(resources, &secrets); err != nil {
+	secrets, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the CA Secret resources", "error", err)
 		return err
 	}
 
 	for _, secret := range secrets.Items {
-		slog.Info("Restoring CA Secret", "name", secret.Name, "namespace", secret.Namespace)
+		slog.Info("Restoring CA Secret", "name", secret.GetName(), "namespace", secret.GetNamespace())
 
 		// We have to update the names of the CA secrets so that they are reused when the cluster is renamed
-		if strings.HasSuffix(secret.Name, "-cluster-ca") {
-			secret.Name = r.Name + "-cluster-ca"
-		} else if strings.HasSuffix(secret.Name, "-cluster-ca-cert") {
-			secret.Name = r.Name + "-cluster-ca-cert"
-		} else if strings.HasSuffix(secret.Name, "-clients-ca") {
-			secret.Name = r.Name + "-clients-ca"
-		} else if strings.HasSuffix(secret.Name, "-clients-ca-cert") {
-			secret.Name = r.Name + "-clients-ca-cert"
+		if strings.HasSuffix(secret.GetName(), "-cluster-ca") {
+			secret.SetName(r.Name + "-cluster-ca")
+		} else if strings.HasSuffix(secret.GetName(), "-cluster-ca-cert") {
+			secret.SetName(r.Name + "-cluster-ca-cert")
+		} else if strings.HasSuffix(secret.GetName(), "-clients-ca") {
+			secret.SetName(r.Name + "-clients-ca")
+		} else if strings.HasSuffix(secret.GetName(), "-clients-ca-cert") {
+			secret.SetName(r.Name + "-clients-ca-cert")
 		}
 
-		utils.CleanseMetadata(&secret.ObjectMeta)
-		r.updateNamespaceAndClusterName(&secret.ObjectMeta)
+		r.updateNamespaceAndClusterName(&secret)
 
-		if _, err := r.KubernetesClient.CoreV1().Secrets(r.Namespace).Create(context.TODO(), &secret, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Secret", "name", secret.Name, "namespace", secret.Namespace, "error", err)
+		if err := r.createRawResource(utils.SecretGVR, &secret); err != nil {
+			slog.Error("Failed to restore the Secret", "name", secret.GetName(), "namespace", secret.GetNamespace(), "error", err)
 			return err
 		}
 	}
@@ -405,21 +395,19 @@ func (r *KafkaRestorer) restoreCaSecrets(resources []byte) error {
 }
 
 func (r *KafkaRestorer) restoreSecrets(resources []byte) error {
-	var secrets *v1.SecretList
-
-	if err := yaml.Unmarshal(resources, &secrets); err != nil {
+	secrets, err := utils.DecodeResourceList(resources)
+	if err != nil {
 		slog.Error("Failed to unmarshall the Secret resources", "error", err)
 		return err
 	}
 
 	for _, secret := range secrets.Items {
-		slog.Info("Restoring Secret", "name", secret.Name, "namespace", secret.Namespace)
+		slog.Info("Restoring Secret", "name", secret.GetName(), "namespace", secret.GetNamespace())
 
-		utils.CleanseMetadata(&secret.ObjectMeta)
-		r.updateNamespaceAndClusterName(&secret.ObjectMeta)
+		r.updateNamespaceAndClusterName(&secret)
 
-		if _, err := r.KubernetesClient.CoreV1().Secrets(r.Namespace).Create(context.TODO(), &secret, metav1.CreateOptions{}); err != nil {
-			slog.Error("Failed to restore the Secret", "name", secret.Name, "namespace", secret.Namespace, "error", err)
+		if err := r.createRawResource(utils.SecretGVR, &secret); err != nil {
+			slog.Error("Failed to restore the Secret", "name", secret.GetName(), "namespace", secret.GetNamespace(), "error", err)
 			return err
 		}
 	}

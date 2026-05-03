@@ -9,10 +9,11 @@ Strimzi Backup is a CLI tool for backing up and restoring your [Strimzi-based Ap
 When using an older Strimzi Backup version with a new Strimzi deployment, some fields might be missing in the backup.
 Please check the table below to see which Strimzi version is supported by which Strimzi Backup version.
 
-| Strimzi Backup Version | Strimzi version |
-|------------------------|-----------------|
-| `0.2.1`                | 0.48.x          |
-| `0.2.0`                | 0.47.x          |
+| Strimzi Backup Version | Strimzi version                        |
+|------------------------|----------------------------------------|
+| `0.3.0`                | 1.0.0 (supports Strimzi `v1` API only) |
+| `0.2.1`                | 0.48.x                                 |
+| `0.2.0`                | 0.47.x                                 |
 
 ## How to use Strimzi Backup?
 
