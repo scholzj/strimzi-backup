@@ -19,8 +19,11 @@ package backuper
 import (
 	"context"
 	"github.com/scholzj/strimzi-backup/pkg/utils"
+	strimziv1 "github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"log/slog"
 )
 
@@ -32,6 +35,7 @@ const (
 	KafkaFilename            = "kafka.yaml"
 	CaSecretsFilename        = "ca-secrets.yaml"
 	KafkaNodePoolsFilename   = "kafka-node-pools.yaml"
+	KafkaRebalancesFilename  = "kafka-rebalances.yaml"
 	KafkaUsersFilename       = "kafka-users.yaml"
 	KafkaTopicsFilename      = "kafka-topics.yaml"
 	KafkaUserSecretsFilename = "kafka-user-secrets.yaml"
@@ -144,6 +148,87 @@ func (b *KafkaBackuper) BackupKafkaTopics() error {
 	slog.Info("Backup of the KafkaTopic resources complete", "labelSelector", "strimzi.io/cluster="+b.Name)
 
 	return nil
+}
+
+func (b *KafkaBackuper) BackupKafkaRebalances() error {
+	b.startStream(KafkaRebalancesFilename, "List of Kafka Rebalance Templates")
+
+	slog.Info("Backing up the KafkaRebalance template resources referenced from the Kafka cluster", "name", b.Name, "namespace", b.Namespace)
+
+	kafka, err := b.StrimziClient.KafkaV1().Kafkas(b.Namespace).Get(context.TODO(), b.Name, metav1.GetOptions{})
+	if err != nil {
+		slog.Error("Failed to get the Kafka cluster for resolving KafkaRebalance templates", "name", b.Name, "namespace", b.Namespace, "error", err)
+		return err
+	}
+
+	templateNames, err := kafkaRebalanceTemplateNames(kafka)
+	if err != nil {
+		slog.Error("Failed to resolve KafkaRebalance template references from the Kafka cluster", "name", b.Name, "namespace", b.Namespace, "error", err)
+		return err
+	}
+
+	resources := &unstructured.UnstructuredList{Object: map[string]interface{}{
+		"apiVersion": "kafka.strimzi.io/v1",
+		"kind":       "KafkaRebalanceList",
+	}}
+
+	for _, templateName := range templateNames {
+		slog.Info("Backing up KafkaRebalance template", "name", templateName, "namespace", b.Namespace)
+
+		resource, err := b.DynamicClient.Resource(utils.KafkaRebalanceGVR).Namespace(b.Namespace).Get(context.TODO(), templateName, metav1.GetOptions{})
+		if err != nil {
+			slog.Error("Failed to get a referenced KafkaRebalance template", "name", templateName, "namespace", b.Namespace, "error", err)
+			return err
+		}
+
+		resources.Items = append(resources.Items, *resource)
+	}
+
+	if !b.skipMetadataCleansing {
+		utils.CleanseResourceListMetadata(resources)
+	}
+
+	if err := b.writeResourceList(resources); err != nil {
+		slog.Error("Failed to marshal the KafkaRebalance templates to YAML", "error", err)
+		return err
+	}
+
+	slog.Info("Backup of the KafkaRebalance template resources complete", "count", len(resources.Items))
+
+	return nil
+}
+
+func kafkaRebalanceTemplateNames(kafka *strimziv1.Kafka) ([]string, error) {
+	if kafka.Spec == nil || kafka.Spec.CruiseControl == nil || len(kafka.Spec.CruiseControl.AutoRebalance) == 0 {
+		return nil, nil
+	}
+
+	templateNames := make([]string, 0, len(kafka.Spec.CruiseControl.AutoRebalance))
+	seen := make(map[string]struct{}, len(kafka.Spec.CruiseControl.AutoRebalance))
+
+	for _, configuration := range kafka.Spec.CruiseControl.AutoRebalance {
+		templateName := kafkaRebalanceTemplateName(configuration.Template)
+		if templateName == "" {
+			continue
+		}
+
+		if _, exists := seen[templateName]; exists {
+			continue
+		}
+
+		seen[templateName] = struct{}{}
+		templateNames = append(templateNames, templateName)
+	}
+
+	return templateNames, nil
+}
+
+func kafkaRebalanceTemplateName(template *corev1.LocalObjectReference) string {
+	if template == nil {
+		return ""
+	}
+
+	return template.Name
 }
 
 func (b *KafkaBackuper) BackupKafkaUsers() error {

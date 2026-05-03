@@ -28,6 +28,7 @@ import (
 var (
 	KafkaGVR          = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkas"}
 	KafkaNodePoolGVR  = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkanodepools"}
+	KafkaRebalanceGVR = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkarebalances"}
 	KafkaTopicGVR     = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkatopics"}
 	KafkaUserGVR      = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkausers"}
 	KafkaConnectGVR   = schema.GroupVersionResource{Group: "kafka.strimzi.io", Version: "v1", Resource: "kafkaconnects"}

@@ -113,6 +113,55 @@ func TestRestoreCaSecretsRenamesClusterSpecificSecrets(t *testing.T) {
 	}
 }
 
+func TestRestoreKafkaRebalancesRewritesNamespaceOnly(t *testing.T) {
+	r := newKafkaRestorerForTests()
+
+	rebalances := &unstructured.UnstructuredList{Object: map[string]interface{}{
+		"apiVersion": "kafka.strimzi.io/v1",
+		"kind":       "KafkaRebalanceList",
+	}, Items: []unstructured.Unstructured{{Object: map[string]interface{}{
+		"apiVersion": "kafka.strimzi.io/v1",
+		"kind":       "KafkaRebalance",
+		"metadata": map[string]interface{}{
+			"name":      "rebalance-template-a",
+			"namespace": "source-ns",
+			"labels": map[string]interface{}{
+				"strimzi.io/cluster": "source-cluster",
+			},
+			"annotations": map[string]interface{}{
+				"strimzi.io/rebalance-template": "true",
+			},
+		},
+		"status": map[string]interface{}{"sessionId": "ignored"},
+	}}}}
+
+	encoded, err := utils.EncodeResourceList(rebalances)
+	if err != nil {
+		t.Fatalf("failed to encode rebalance templates: %v", err)
+	}
+
+	if err := r.restoreKafkaRebalances(encoded); err != nil {
+		t.Fatalf("restoreKafkaRebalances failed: %v", err)
+	}
+
+	created, err := r.DynamicClient.Resource(utils.KafkaRebalanceGVR).Namespace(r.Namespace).Get(context.TODO(), "rebalance-template-a", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("expected rebalance template to be restored: %v", err)
+	}
+	if created.GetNamespace() != r.Namespace {
+		t.Fatalf("expected namespace rewrite, got %q", created.GetNamespace())
+	}
+	if created.GetLabels()["strimzi.io/cluster"] != "source-cluster" {
+		t.Fatalf("expected cluster label to be preserved, got %q", created.GetLabels()["strimzi.io/cluster"])
+	}
+	if created.GetAnnotations()["strimzi.io/rebalance-template"] != "true" {
+		t.Fatalf("expected rebalance template annotation to be preserved")
+	}
+	if _, found, _ := unstructured.NestedFieldNoCopy(created.Object, "status"); found {
+		t.Fatalf("expected status to be stripped from restored rebalance template")
+	}
+}
+
 func newKafkaRestorerForTests() *KafkaRestorer {
 	return &KafkaRestorer{Restorer: Restorer{
 		DynamicClient: newKafkaFakeDynamicClient(),
@@ -125,6 +174,7 @@ func newKafkaFakeDynamicClient(objects ...runtime.Object) *dynamicfake.FakeDynam
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
 		utils.KafkaGVR:          "KafkaList",
 		utils.KafkaNodePoolGVR:  "KafkaNodePoolList",
+		utils.KafkaRebalanceGVR: "KafkaRebalanceList",
 		utils.KafkaTopicGVR:     "KafkaTopicList",
 		utils.KafkaUserGVR:      "KafkaUserList",
 		utils.KafkaConnectGVR:   "KafkaConnectList",

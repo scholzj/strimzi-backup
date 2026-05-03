@@ -66,6 +66,12 @@ var (
 				os.Exit(1)
 			}
 
+			if err := b.BackupKafkaRebalances(); err != nil {
+				slog.Error("Failed to backup Kafka rebalance templates", "error", err)
+				b.Discard()
+				os.Exit(1)
+			}
+
 			if err := b.BackupKafkaUsers(); err != nil {
 				slog.Error("Failed to backup Kafka users", "error", err)
 				b.Discard()

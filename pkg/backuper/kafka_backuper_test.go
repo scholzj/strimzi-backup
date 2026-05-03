@@ -6,9 +6,12 @@ import (
 	"compress/gzip"
 	"io"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/scholzj/strimzi-backup/pkg/utils"
+	strimziv1 "github.com/scholzj/strimzi-go/pkg/apis/kafka.strimzi.io/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -88,10 +91,36 @@ func TestBackupKafkaPreservesUnknownFields(t *testing.T) {
 	}
 }
 
+func TestKafkaRebalanceTemplateNames(t *testing.T) {
+	kafka := &strimziv1.Kafka{
+		Spec: &strimziv1.KafkaSpec{
+			CruiseControl: &strimziv1.CruiseControlSpec{
+				AutoRebalance: []strimziv1.KafkaAutoRebalanceConfiguration{
+					{Mode: strimziv1.ADD_BROKERS_KAFKAAUTOREBALANCEMODE, Template: &corev1.LocalObjectReference{Name: "add-template"}},
+					{Mode: strimziv1.REMOVE_BROKERS_KAFKAAUTOREBALANCEMODE, Template: &corev1.LocalObjectReference{Name: "remove-template"}},
+					{Mode: strimziv1.ADD_BROKERS_KAFKAAUTOREBALANCEMODE, Template: &corev1.LocalObjectReference{Name: "add-template"}},
+					{Mode: strimziv1.REMOVE_BROKERS_KAFKAAUTOREBALANCEMODE},
+				},
+			},
+		},
+	}
+
+	templateNames, err := kafkaRebalanceTemplateNames(kafka)
+	if err != nil {
+		t.Fatalf("expected template names to be parsed: %v", err)
+	}
+
+	expected := []string{"add-template", "remove-template"}
+	if !reflect.DeepEqual(expected, templateNames) {
+		t.Fatalf("expected template names %v, got %v", expected, templateNames)
+	}
+}
+
 func newFakeDynamicClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
 		utils.KafkaGVR:          "KafkaList",
 		utils.KafkaNodePoolGVR:  "KafkaNodePoolList",
+		utils.KafkaRebalanceGVR: "KafkaRebalanceList",
 		utils.KafkaTopicGVR:     "KafkaTopicList",
 		utils.KafkaUserGVR:      "KafkaUserList",
 		utils.KafkaConnectGVR:   "KafkaConnectList",

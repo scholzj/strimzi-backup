@@ -166,6 +166,14 @@ func (r *KafkaRestorer) restoreStream(streamName string, resources []byte) (stri
 		}
 		slog.Info("Kafka Topics were restored")
 		return "", nil
+	case backuper.KafkaRebalancesFilename:
+		slog.Info("Restoring Kafka Rebalance templates")
+		if err := r.restoreKafkaRebalances(resources); err != nil {
+			slog.Error("Failed to restore Kafka Rebalance template resources", "error", err)
+			return "", err
+		}
+		slog.Info("Kafka Rebalance templates were restored")
+		return "", nil
 	case backuper.KafkaUserSecretsFilename:
 		if r.skipUserSecrets {
 			slog.Warn("Skipping restoring Kafka User Secrets")
@@ -355,6 +363,27 @@ func (r *KafkaRestorer) restoreKafkaTopics(resources []byte) error {
 
 		if err := r.createRawResource(utils.KafkaTopicGVR, &topic); err != nil {
 			slog.Error("Failed to restore the Kafka Topic resource", "name", topic.GetName(), "namespace", topic.GetNamespace(), "error", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *KafkaRestorer) restoreKafkaRebalances(resources []byte) error {
+	rebalances, err := utils.DecodeResourceList(resources)
+	if err != nil {
+		slog.Error("Failed to unmarshall the Kafka Rebalance template resources", "error", err)
+		return err
+	}
+
+	for _, rebalance := range rebalances.Items {
+		slog.Info("Restoring Kafka Rebalance template", "name", rebalance.GetName(), "namespace", rebalance.GetNamespace())
+
+		rebalance.SetNamespace(r.Namespace)
+
+		if err := r.createRawResource(utils.KafkaRebalanceGVR, &rebalance); err != nil {
+			slog.Error("Failed to restore the Kafka Rebalance template resource", "name", rebalance.GetName(), "namespace", rebalance.GetNamespace(), "error", err)
 			return err
 		}
 	}
